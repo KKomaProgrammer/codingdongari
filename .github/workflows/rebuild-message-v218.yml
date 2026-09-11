@@ -25,7 +25,7 @@ jobs:
           rm -rf .v218-build
           mkdir .v218-build
           python3 - <<'PY'
-          import json, zipfile, pathlib, shutil, datetime, re
+          import json, zipfile, pathlib, datetime
 
           src = pathlib.Path('message_V2.1.7.zip')
           dst = pathlib.Path('.v218-build')
@@ -39,7 +39,6 @@ jobs:
 
           manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
           build = json.loads(build_path.read_text(encoding='utf-8'))
-
           if int(manifest.get('manifest_version', 0)) != 3:
               raise SystemExit('manifest_version must be 3')
           if manifest.get('name') != '이준우가 만든 종합 채팅 확장프로램':
@@ -104,3 +103,5 @@ jobs:
           fi
           git commit -m 'Add verified message V2.1.8 update package'
           git push origin HEAD:main
+
+# trigger rebuild after workflow already exists
