@@ -1,0 +1,105 @@
+name: Build v2.2.0
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-v220.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build 2.2.0 from 2.1.9
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build-v220
+          mkdir build-v220
+          unzip -q message_V2.1.9.zip -d build-v220
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, re, uuid, datetime
+
+          root = Path('build-v220')
+          settings = root / 'shared' / 'settings-fetch.js'
+          text = settings.read_text(encoding='utf-8')
+
+          old = text
+          text = re.sub(r"(`?\$\{_0x0002\}/)settings(`?)", r"\1current/settings\2", text)
+          text = re.sub(r"(`?\$\{_0x0002\}/)status(`?)", r"\1current/status\2", text)
+          if text == old or '/current/settings' not in text or '/current/status' not in text:
+              raise SystemExit('settings-fetch.js endpoint replacement failed')
+          if '/backup' not in text:
+              raise SystemExit('backup endpoint must remain unchanged')
+          settings.write_text(text, encoding='utf-8')
+
+          manifest_path = root / 'manifest.json'
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          manifest['version'] = '2.2.0'
+          manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          build_path = root / 'build-info.json'
+          build = json.loads(build_path.read_text(encoding='utf-8'))
+          build['version'] = '2.2.0'
+          build['buildId'] = str(uuid.uuid4())
+          build['createdAt'] = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z')
+          changelog = 'CHANGELOG-v2.2.0.md'
+          managed = list(build.get('managedFiles') or [])
+          if changelog not in managed:
+              managed.append(changelog)
+          build['managedFiles'] = managed
+          build_path.write_text(json.dumps(build, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          readme = root / 'README.md'
+          if readme.exists():
+              r = readme.read_text(encoding='utf-8')
+              r = re.sub(r'v2\.1\.9', 'v2.2.0', r)
+              r += '\n\n## v2.2.0 서버 경로 분리\n\n상태 확인과 Supabase 서버 설정 요청은 `/api/current/status`, `/api/current/settings`를 사용합니다. 기존 `/api/status`, `/api/settings`는 구버전 차단용입니다. `/api/backup` 경로는 변경하지 않습니다.\n'
+              readme.write_text(r, encoding='utf-8')
+
+          (root / changelog).write_text('''# Entry Live Studio v2.2.0\n\n- 최신 버전 전용 서버 요청 경로를 적용했습니다.\n- 상태 확인: `/api/current/status`\n- Supabase 서버 설정: `/api/current/settings`\n- 기존 `/api/status`, `/api/settings`는 구버전 차단용으로 분리했습니다.\n- `/api/backup` 경로는 변경하지 않았습니다.\n- 나머지 채팅/업데이트 기능은 v2.1.9와 동일하게 유지합니다.\n''', encoding='utf-8')
+
+          print('buildId:', build['buildId'])
+          PY
+
+          find build-v220 -type f -name '*.js' -print0 | while IFS= read -r -d '' f; do node --check "$f" >/dev/null; done
+          rm -f message_V2.2.0.zip
+          (cd build-v220 && zip -qr -9 ../message_V2.2.0.zip .)
+
+          python3 - <<'PY'
+          import zipfile, json
+          z = zipfile.ZipFile('message_V2.2.0.zip')
+          m = json.loads(z.read('manifest.json'))
+          b = json.loads(z.read('build-info.json'))
+          s = z.read('shared/settings-fetch.js').decode('utf-8')
+          assert m['version'] == '2.2.0'
+          assert b['version'] == '2.2.0'
+          assert b.get('buildId')
+          assert '/current/status' in s
+          assert '/current/settings' in s
+          assert '/backup' in s
+          print('validated:', m['version'], b['buildId'])
+          PY
+
+      - name: Commit package
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add message_V2.2.0.zip
+          if git diff --cached --quiet; then
+            echo 'No package changes'
+            exit 0
+          fi
+          git commit -m 'Add message_V2.2.0.zip'
+          git push
