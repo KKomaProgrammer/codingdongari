@@ -1,0 +1,56 @@
+name: Build v2.2.4
+on:
+  push:
+    paths:
+      - '.github/workflows/build-v224.yml'
+      - 'tools/build_v224.py'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download v2.2.3 package
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/pkg /tmp/pkg.zip
+          mkdir -p /tmp/pkg
+          curl -fL -o /tmp/pkg.zip "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/message_V2.2.3.zip"
+          unzip -q /tmp/pkg.zip -d /tmp/pkg
+      - name: Patch v2.2.4
+        run: python tools/build_v224.py
+      - name: Validate JavaScript and centered notice
+        run: |
+          set -euo pipefail
+          find /tmp/pkg -type f -name '*.js' -print0 | while IFS= read -r -d '' f; do node --check "$f" >/dev/null; done
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=Path('/tmp/pkg')
+          m=json.loads((r/'manifest.json').read_text())
+          b=json.loads((r/'build-info.json').read_text())
+          ct=(r/'content/chat.js').read_text()
+          assert m['version']=='2.2.4'
+          assert b['version']=='2.2.4' and b['buildId']
+          assert 'CHANGELOG-v2.2.4.md' in b['managedFiles']
+          assert 'entryChatNoticeCard' in ct
+          assert 'entryChatNoticeAckV1' in ct
+          assert "left:50%;top:50%;transform:translate(-50%,-50%)" in ct
+          assert '>공지</div>' in ct
+          print('validation ok', b['buildId'])
+          PY
+      - name: Build ZIP
+        run: |
+          cd /tmp/pkg
+          zip -qr -9 "$GITHUB_WORKSPACE/message_V2.2.4.zip" .
+          unzip -t "$GITHUB_WORKSPACE/message_V2.2.4.zip" >/dev/null
+      - name: Commit ZIP
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add message_V2.2.4.zip
+          git diff --cached --quiet && exit 0
+          git commit -m "release: add message_V2.2.4.zip"
+          git push
