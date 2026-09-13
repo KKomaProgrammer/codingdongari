@@ -1,0 +1,68 @@
+name: Build v2.2.2
+on:
+  push:
+    paths:
+      - '.github/workflows/build-v222.yml'
+      - 'tools/build_v222.py'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download v2.2.1 package
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/pkg /tmp/pkg.zip
+          mkdir -p /tmp/pkg
+          curl -fL -o /tmp/pkg.zip "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/message_V2.2.1.zip"
+          unzip -q /tmp/pkg.zip -d /tmp/pkg
+      - name: Patch v2.2.2
+        run: python tools/build_v222.py
+      - name: Validate JavaScript and update architecture
+        run: |
+          set -euo pipefail
+          find /tmp/pkg -type f -name '*.js' -print0 | while IFS= read -r -d '' f; do node --check "$f" >/dev/null; done
+          python - <<'PY'
+          import json, re
+          from pathlib import Path
+          r=Path('/tmp/pkg')
+          m=json.loads((r/'manifest.json').read_text())
+          b=json.loads((r/'build-info.json').read_text())
+          assert m['version']=='2.2.2'
+          assert b['version']=='2.2.2' and b['buildId']
+          assert 'CHANGELOG-v2.2.2.md' in b['managedFiles']
+          sf=(r/'shared/settings-fetch.js').read_text()
+          up=(r/'updater.js').read_text()
+          bg=(r/'background.js').read_text()
+          ct=(r/'content/chat.js').read_text()
+          uh=(r/'updater.html').read_text()
+          assert '/current/update-package' in sf and 'fetchUpdatePackage' in sf
+          assert 'entryChatUpdatePackageCacheV2' in up
+          assert 'EntrySettingsFetch.fetchUpdatePackage' in up
+          assert 'raw.githubusercontent.com' not in up
+          assert "command('CHECK_UPDATE')" not in up and 'ENTRY_CHAT_COMMAND' not in up
+          assert 'shared/settings-fetch.js' in uh
+          assert 'mandatoryUpdatePolicy' in bg
+          assert 'entryChatLatestUpdateInfoV1' in bg
+          assert "const status = await EntrySettingsFetch.fetchStatus();" in bg
+          status_block=bg[bg.index('async function _0x0098()'):bg.index('function _0x009a()')]
+          assert '_0x01a5()' not in status_block
+          assert '_0x0179.mandatoryUpdate || _0x0003.data.mandatoryUpdate' in ct
+          print('validation ok', b['buildId'])
+          PY
+      - name: Build ZIP
+        run: |
+          cd /tmp/pkg
+          zip -qr -9 "$GITHUB_WORKSPACE/message_V2.2.2.zip" .
+          unzip -t "$GITHUB_WORKSPACE/message_V2.2.2.zip" >/dev/null
+      - name: Commit ZIP
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add message_V2.2.2.zip
+          git diff --cached --quiet && exit 0
+          git commit -m "release: add message_V2.2.2.zip"
+          git push
