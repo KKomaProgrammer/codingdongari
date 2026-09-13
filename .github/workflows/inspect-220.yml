@@ -1,0 +1,36 @@
+name: inspect-220
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-220.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract selected v2.2.0 files
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/pkg _inspect220
+          mkdir -p /tmp/pkg _inspect220/shared _inspect220/content
+          curl -fL -o /tmp/pkg.zip "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA%%????????????????????????????????????????}/message_V2.2.0.zip" || curl -fL -o /tmp/pkg.zip "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/message_V2.2.0.zip"
+          unzip -q /tmp/pkg.zip -d /tmp/pkg
+          cp /tmp/pkg/manifest.json _inspect220/
+          cp /tmp/pkg/build-info.json _inspect220/
+          cp /tmp/pkg/background.js _inspect220/
+          cp /tmp/pkg/updater.js _inspect220/
+          cp /tmp/pkg/updater.html _inspect220/
+          cp /tmp/pkg/content/chat.js _inspect220/content/
+          cp /tmp/pkg/shared/settings-fetch.js _inspect220/shared/
+          cp /tmp/pkg/shared/chat-backup.js _inspect220/shared/ || true
+      - name: Commit inspection files
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add _inspect220
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: extract v2.2.0 sources for patching"
+          git push
