@@ -1,0 +1,35 @@
+name: inspect-221
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-221.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract v2.2.1 update sources
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/pkg _inspect221
+          mkdir -p /tmp/pkg _inspect221/shared _inspect221/content
+          curl -fL -o /tmp/pkg.zip "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/message_V2.2.1.zip"
+          unzip -q /tmp/pkg.zip -d /tmp/pkg
+          cp /tmp/pkg/manifest.json _inspect221/
+          cp /tmp/pkg/build-info.json _inspect221/
+          cp /tmp/pkg/background.js _inspect221/
+          cp /tmp/pkg/updater.js _inspect221/
+          cp /tmp/pkg/updater.html _inspect221/
+          cp /tmp/pkg/content/chat.js _inspect221/content/
+          cp /tmp/pkg/shared/settings-fetch.js _inspect221/shared/
+      - name: Commit inspection files
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add _inspect221
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: extract v2.2.1 sources for patching"
+          git push
