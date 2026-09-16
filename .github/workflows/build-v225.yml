@@ -43,6 +43,12 @@ jobs:
           cd /tmp/pkg
           zip -qr -9 "$GITHUB_WORKSPACE/message_V2.2.5.zip" .
           unzip -t "$GITHUB_WORKSPACE/message_V2.2.5.zip" >/dev/null
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: message_V2.2.5
+          path: message_V2.2.5.zip
+          if-no-files-found: error
       - name: Commit ZIP
         run: |
           set -euo pipefail
