@@ -1,0 +1,140 @@
+305.senderId && _0x0044(_0x0305.roomCode)).slice(-80);
++        _v227Fingerprint = /^[a-f0-9]{64}$/i.test(String(_0x004e.entryChatDeviceFingerprintV1 || '')) ? String(_0x004e.entryChatDeviceFingerprintV1).toLowerCase() : '';
++        _v227AccountCode = String(_0x004e.entryChatAccountCodeV1 || '').trim().slice(0, 180);
++        _v227Theme = ['default', 'google', 'naver'].includes(String(_0x004e.entryChatThemeV1 || '')) ? String(_0x004e.entryChatThemeV1) : 'default';
++        _0x0303 = (Array.isArray(_0x004e[_0x0301]) ? _0x004e[_0x0301] : []).map((_v227n) => ({
++            id: String(_v227n?.id || _0x0030()),
++            type: _v227n?.type === 'chat-message' ? 'chat-message' : 'room-recommendation',
++            senderId: String(_v227n?.senderId || ''),
++            senderName: _0x0031(_v227n?.senderName || '사용자'),
++            roomCode: String(_v227n?.roomCode || ''),
++            roomName: _0x0034(_v227n?.roomName || '채팅방'),
++            targetUserId: _v227n?.targetUserId ? String(_v227n.targetUserId) : null,
++            preview: String(_v227n?.preview || '').slice(0, 160),
++            extraCount: Math.max(0, Math.min(999, Number(_v227n?.extraCount) || 0)),
++            at: Number(_v227n?.at) || _0x002f(),
++            read: Boolean(_v227n?.read),
++        })).filter((_v227n) => _v227n.id && _0x0044(_v227n.roomCode)).slice(-100);
+         if (_0x004e.entryChatBackupHealthV1 && typeof _0x004e.entryChatBackupHealthV1 === 'object') {
+             _0x0015 = { ..._0x0015, ..._0x004e.entryChatBackupHealthV1 };
+         }
+@@ -399,6 +411,215 @@ async function _0x0090(_0x0091) {
+     }
+     _0x017e();
+ }
++
++function _v227ValidFingerprint(value) {
++    return /^[a-f0-9]{64}$/i.test(String(value || '')) ? String(value).toLowerCase() : '';
++}
++async function _v227PersistIdentity() {
++    await chrome.storage.local.set({ entryChatIdentity: _0x0004 });
++    await Promise.all([
++        _0x0016.setKv('identity', _0x0004).catch(() => { }),
++        _0x0016.setKv('profileImage', _0x0004.avatarDataUrl || '').catch(() => { }),
++    ]);
++}
++async function _v227RememberFingerprint(value) {
++    const fingerprint = _v227ValidFingerprint(value);
++    if (!fingerprint) throw new Error('기기 확인 정보를 만들지 못했습니다. 페이지를 새로고침한 뒤 다시 시도하세요.');
++    _v227Fingerprint = fingerprint;
++    await chrome.storage.local.set({ entryChatDeviceFingerprintV1: fingerprint });
++    return fingerprint;
++}
++async function _v227RegisterAccount(fingerprintHash, displayName) {
++    const fingerprint = await _v227RememberFingerprint(fingerprintHash);
++    const name = _0x0031(displayName || _0x0004.name);
++    const result = await EntrySettingsFetch.accountRequest('register', {
++        accountId: _0x0004.id,
++        nickname: name,
++        fingerprintHash: fingerprint,
++        avatarDataUrl: _0x0004.avatarDataUrl || '',
++    }, { timeout: 20000 });
++    if (result?.account?.id && result.account.id !== _0x0004.id)
++        throw new Error('계정 서버의 사용자 ID가 현재 계정과 일치하지 않습니다.');
++    if (result?.accountCode) {
++        _v227AccountCode = String(result.accountCode).trim().slice(0, 180);
++        await chrome.storage.local.set({ entryChatAccountCodeV1: _v227AccountCode });
++    }
++    return result;
++}
++async function _v227UpdateAccountName(displayName) {
++    if (!_v227Fingerprint) throw new Error('기기 확인 정보가 없습니다. 다시 로그인해 주세요.');
++    return EntrySettingsFetch.accountRequest('update-name', {
++        accountId: _0x0004.id,
++        nickname: _0x0031(displayName),
++        fingerprintHash: _v227Fingerprint,
++    }, { timeout: 15000 });
++}
++async function _v227UpdateAccountProfile(avatarDataUrl) {
++    if (!_v227Fingerprint) return false;
++    await EntrySettingsFetch.accountRequest('update-profile', {
++        accountId: _0x0004.id,
++        avatarDataUrl: avatarDataUrl || '',
++        fingerprintHash: _v227Fingerprint,
++    }, { timeout: 15000 });
++    return true;
++}
++async function _v227ApplyAccount(account, accountCode, fingerprintHash) {
++    if (!account?.id || !account?.nickname) throw new Error('가져온 계정 정보가 올바르지 않습니다.');
++    const oldId = _0x0004.id;
++    const newId = String(account.id);
++    let avatar = '';
++    try { avatar = _0x0040(account.avatar_data_url || '', _0x0024); } catch (_) { avatar = ''; }
++    _0x0004 = { id: newId, name: _0x0031(account.nickname), avatarDataUrl: avatar };
++    _v227Fingerprint = await _v227RememberFingerprint(fingerprintHash);
++    _v227AccountCode = String(accountCode || '').trim().slice(0, 180);
++    const localUpdate = { entryChatIdentity: _0x0004, entryChatDeviceFingerprintV1: _v227Fingerprint };
++    if (_v227AccountCode) localUpdate.entryChatAccountCodeV1 = _v227AccountCode;
++    await chrome.storage.local.set(localUpdate);
++    await _v227PersistIdentity();
++    for (const room of _0x0002.values()) {
++        if (oldId && oldId !== newId) room.users.delete(oldId);
++        room.isLeader = room.leaderId === newId;
++        const self = room.users.get(newId) || _0x0081(room);
++        self.id = newId;
++        self.name = _0x0004.name;
++        self.avatarDataUrl = avatar;
++        self.self = true;
++        self.online = true;
++        self.lastSeen = _0x002f();
++        room.users.set(newId, self);
++    }
++    await _0x0083();
++    if (_0x0005) {
++        try { _0x0005.close(); } catch (_) { }
++        _0x0005 = null;
++    }
++    if (_0x0006) {
++        await _0x0086();
++        await _0x008b();
++    }
++    _0x017e();
++    return _0x017a();
++}
++async function _v227ImportAccountCode(accountCode, fingerprintHash) {
++    const code = String(accountCode || '').trim().slice(0, 180);
++    if (!code) throw new Error('계정 코드를 입력하세요.');
++    const fingerprint = await _v227RememberFingerprint(fingerprintHash);
++    const result = await EntrySettingsFetch.accountRequest('import-account', { accountCode: code, fingerprintHash: fingerprint }, { timeout: 20000 });
++    await _v227ApplyAccount(result.account, code, fingerprint);
++    return { identity: { ..._0x0004 } };
++}
++async function _v227CopyAccountCode() {
++    if (_v227AccountCode) return { accountCode: _v227AccountCode };
++    if (!_v227Fingerprint) throw new Error('먼저 로그인해 계정을 등록하세요.');
++    const result = await EntrySettingsFetch.accountRequest('rotate-code', {
++        accountId: _0x0004.id,
++        fingerprintHash: _v227Fingerprint,
++    }, { timeout: 15000 });
++    _v227AccountCode = String(result?.accountCode || '').trim().slice(0, 180);
++    if (!_v227AccountCode) throw new Error('계정 코드를 발급하지 못했습니다.');
++    await chrome.storage.local.set({ entryChatAccountCodeV1: _v227AccountCode });
++    return { accountCode: _v227AccountCode };
++}
++async function _v227SearchAccounts(query) {
++    const value = _0x0031(query || '', '');
++    if (!value) return { users: [] };
++    if (!_v227Fingerprint) throw new Error('기기 확인 정보가 없습니다. 다시 로그인해 주세요.');
++    return EntrySettingsFetch.accountRequest('search-users', { query: value, requesterId: _0x0004.id, fingerprintHash: _v227Fingerprint }, { timeout: 12000 });
++}
++async function _v227BlockR
