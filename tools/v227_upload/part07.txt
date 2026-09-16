@@ -1,0 +1,69 @@
+;
++        _0x0003.recommendSelectedAccountId = null;
++        _0x017d('방 추천', `<p class="room-recommend-note">이름의 일부만 입력해 사용자를 검색한 뒤 결과에서 한 명을 선택하세요. 이미 이 방 추천을 받았거나 이 방 추천을 차단한 사용자에게는 다시 보낼 수 없습니다.</p><div class="field"><label>사용자 검색</label><input id="recommendUserName" maxlength="24" autocomplete="off" placeholder="닉네임 일부 입력"></div><div class="recommend-results" id="recommendSearchResults"><div class="notification-item">닉네임 일부를 입력하세요.</div></div>`, async () => {
++            const selected = String(_0x0003.recommendSelectedAccountId || '');
++            if (!selected) throw new Error('추천할 사용자를 검색 결과에서 선택하세요.');
++            const result = await _0x0019('SEND_ROOM_RECOMMENDATION', { code: _0x033f.code, targetAccountId: selected }, 20000);
++            _0x01ba(`${result?.target?.name || '사용자'}님에게 ${_0x033f.name} 방 추천을 보냈습니다.`);
++        });
++        const input = _0x000f('recommendUserName');
++        const results = _0x000f('recommendSearchResults');
++        const confirm = _0x000f('modalConfirm');
++        if (confirm) confirm.disabled = true;
++        let timer = null;
++        const render = () => {
++            const rows = _0x0003.recommendSearchResults || [];
++            results.innerHTML = rows.length ? rows.map((user) => `<button class="recommend-result ${user.id === _0x0003.recommendSelectedAccountId ? 'selected' : ''}" type="button" data-recommend-account="${_0x0005(user.id)}"><b>${_0x0005(user.nickname)}</b><small>선택</small></button>`).join('') : '<div class="notification-item">검색 결과가 없습니다.</div>';
++            results.querySelectorAll('[data-recommend-account]').forEach((button) => button.addEventListener('click', () => {
++                _0x0003.recommendSelectedAccountId = button.dataset.recommendAccount;
++                render();
++                if (confirm) confirm.disabled = false;
++            }));
++        };
++        input?.addEventListener('input', () => {
++            _0x0003.recommendSelectedAccountId = null;
++            if (confirm) confirm.disabled = true;
++            clearTimeout(timer);
++            const query = input.value.trim();
++            if (!query) { _0x0003.recommendSearchResults = []; results.innerHTML = '<div class="notification-item">닉네임 일부를 입력하세요.</div>'; return; }
++            results.innerHTML = '<div class="notification-item">검색 중…</div>';
++            timer = setTimeout(async () => {
++                try {
++                    const response = await _0x0019('SEARCH_ACCOUNTS', { query }, 12000);
++                    _0x0003.recommendSearchResults = Array.isArray(response?.users) ? response.users : [];
++                    render();
++                } catch (error) { results.innerHTML = `<div class="notification-item">${_0x0005(error?.message || String(error))}</div>`; }
++            }, 220);
+         });
+     }
+     function _0x033f() {
+@@ -749,7 +909,7 @@
+         if (_0x000f('authForm')) return;
+         const passwordRequired = _0x0003.data.passwordRequired !== false;
+         const passwordField = passwordRequired ? `<div class="field"><label>연결 비밀번호</label><input id="authPassword" type="password" maxlength="256" autocomplete="current-password" inputmode="latin" lang="en" autocapitalize="none" spellcheck="false"></div>` : '';
+-        _0x0012.innerHTML = `<div class="auth"><form class="authcard" id="authForm"><h2>채팅 연결</h2><p>이름을 입력해 채팅을 시작합니다.</p><div class="field"><label>이름</label><input id="authName" maxlength="24" value="${_0x0005(_0x0003.data.identity?.name || '사용자')}" autocomplete="nickname"></div>${passwordField}<button class="primary" id="authSubmit" type="submit" style="width:100%">계속하기</button><div class="autherror" id="authError"></div></form></div>`;
++        _0x0012.innerHTML = `<div class="auth"><form class="authcard" id="authForm"><h2>채팅 연결</h2><p>이름을 입력해 채팅을 시작합니다.</p><div class="field"><label>이름</label><input id="authName" maxlength="24" value="${_0x0005(_0x0003.data.identity?.name || '사용자')}" autocomplete="nickname"></div>${passwordField}<button class="primary" id="authSubmit" type="submit" style="width:100%">계속하기</button><div class="autherror" id="authError"></div><div class="import-link-row">이미 계정이 있으시면, 계정 정보를 <button type="button" id="preloginImportAccount">가져와</button> 보세요</div></form></div>`;
+         const password = _0x000f('authPassword');
+         if (password) {
+             const normalizePassword = () => { password.value = password.value.toLowerCase().replace(/[^\x20-\x7e]/g, ''); };
+@@ -763,12 +923,14 @@
+             button.disabled = true;
+             errorBox.textContent = '연결 중…';
+             try {
+-                await _0x0019('AUTH', { name: _0x000f('authName').value, password: password?.value?.toLowerCase() || '' }, 20000);
++                const fingerprintHash = await _v227DeviceFingerprint();
++                await _0x0019('AUTH', { name: _0x000f('authName').value, password: password?.value?.toLowerCase() || '', fingerprintHash }, 25000);
+                 if (password) password.value = '';
+                 errorBox.textContent = '';
+             } catch (error) { errorBox.textContent = error?.message || String(error); }
+             finally { button.disabled = false; }
+         });
++        _0x000f('preloginImportAccount')?.addEventListener('click', () => _v227ImportAccountModal(true));
+     }
+     function _0x00a9() {
+         _0x0012.innerHTML = `<div class="main" id="chatMain"><div id="mainView" style="height:100%;min-height:0"></div></div>`;
+@@ -823,7 +985,7 @@
+         const _0x00c5 = _0x0003.data.rooms || [];
+         const _0x00c6 = _0x00c5.reduce((_0x00c7, _0x00c8) => _0x00c7 + (_0x00c8.users || []).filter((_0x0346) => _0x00c7 + 0 || _0x0346.online).length, 0);
+         const _0x0230 = !_0x0003.data.shortcutIntroSeen ? '<div class="shortcut-intro" id="shortcutIntro"><button id="shortcutIntroClose" type="button">닫기</button>Alt를 2번 연타하면 일시적으로 채팅 아이콘과 채팅창이 사라집니다. 다시 2번 연타하면 아이콘과 채팅창이 보이게 됩니다. 단축키는 메인 화면 아래쪽에서 변경이 가능합니다.</div>' : '';
+-        _0x00c2.innerHTML = `<section class="navview"><header class="navhead"><span class="navtitle"><b>채팅</b><small>여러 방을 동시에 연결하고 대화를 이어갈 수 있습니다.</small></span></header><div class="navbody"><div class="rooms-home">${_0x0230}<div class="home-profile">${_0x00b0(_0x00c3, _0x00c4)}<span class="profilecopy"><b>${_0x0005(_0x00c3)}</b><small>내 프로필</small></span><span class="profile-actions"><button class="tinybtn" id="editProfilePhoto">사진</button><button class="tinybtn" id="editName">이름</button></span></div><div class="home-stats"><div class="home-stat"><b>${_0x00c5.length}</b><small>참가 중인 방</small></div><div class="home-stat"><b>${_0x00c6}</b><small>현재 연결 인원</small></div><div class="home-stat"><b>${_0x009e()}</b><small>읽지 않은 메시지</small></div></div><div class="section-label"><span>내 공간</span></div><button class="self-chat-card" id="openSelfChat">${_0x00b0(_0x00c3, _0x00c4, 'member-avatar')}<span class="member-copy"><b>나와의 채팅</b><small>메모와 사진을 나에게 저장</small></span><span class="member-arrow">›</span></button><div class="section-label"><span>채팅방</span></div>
