@@ -55,7 +55,7 @@ jobs:
           p=Path('message_V2.2.7.zip')
           b=p.read_bytes()
           gitsha=hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
-          expected='ae5768067591fbfa42d12fa2d656990107bfc5e'
+          expected='ae57689d4d63180d963c74ad7c2b0c91a9824cd1'
           assert gitsha == expected, (gitsha, expected)
           with zipfile.ZipFile(p) as z:
               bad=z.testzip()
