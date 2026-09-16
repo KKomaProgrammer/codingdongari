@@ -1,0 +1,43 @@
+name: Build v2.2.6
+on:
+  push:
+    paths:
+      - '.github/workflows/build-v226.yml'
+      - 'tools/build_v226.py'
+      - 'tools/test_v226.py'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download v2.2.5 package
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/pkg /tmp/pkg.zip
+          mkdir -p /tmp/pkg
+          curl -fL -o /tmp/pkg.zip "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/message_V2.2.5.zip"
+          unzip -q /tmp/pkg.zip -d /tmp/pkg
+      - name: Patch v2.2.6
+        run: python tools/build_v226.py
+      - name: Validate v2.2.6
+        run: |
+          set -euo pipefail
+          python tools/test_v226.py /tmp/pkg
+          find /tmp/pkg -type f -name '*.js' -print0 | while IFS= read -r -d '' f; do node --check "$f" >/dev/null; done
+      - name: Build ZIP
+        run: |
+          cd /tmp/pkg
+          zip -qr -9 "$GITHUB_WORKSPACE/message_V2.2.6.zip" .
+          unzip -t "$GITHUB_WORKSPACE/message_V2.2.6.zip" >/dev/null
+      - name: Commit ZIP
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add message_V2.2.6.zip
+          git diff --cached --quiet && exit 0
+          git commit -m "release: add message_V2.2.6.zip"
+          git push
