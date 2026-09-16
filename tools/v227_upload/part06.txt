@@ -1,0 +1,110 @@
+eMemory || 0, navigator.maxTouchPoints || 0,
++            screen?.width || 0, screen?.height || 0, screen?.availWidth || 0, screen?.availHeight || 0,
++            screen?.colorDepth || 0, screen?.pixelDepth || 0, devicePixelRatio || 1,
++            Intl.DateTimeFormat().resolvedOptions().timeZone || '', webgl,
++        ].join('||');
++        const bytes = new TextEncoder().encode(deviceFingerprint);
++        const digest = await crypto.subtle.digest('SHA-256', bytes);
++        _0x0003.deviceFingerprint = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
++        return _0x0003.deviceFingerprint;
++    }
++    function _v227ApplyTheme(theme) {
++        const panel = _0x000f('panel');
++        if (!panel) return;
++        panel.classList.remove('theme-google', 'theme-naver');
++        if (theme === 'google') panel.classList.add('theme-google');
++        if (theme === 'naver') panel.classList.add('theme-naver');
++    }
++    function _v227CloseNotificationPanel() {
++        const panel = _0x000f('notificationPanel');
++        const backdrop = _0x000f('notificationPanelBackdrop');
++        if (!panel || panel.hidden) return;
++        _0x0003.notificationPanelOpen = false;
++        clearTimeout(_0x0003.notificationPanelTimer);
++        panel.classList.remove('entering');
++        panel.classList.add('leaving');
++        backdrop?.classList.remove('open');
++        _0x0003.notificationPanelTimer = setTimeout(() => {
++            panel.hidden = true;
++            panel.classList.remove('leaving');
++            if (backdrop) backdrop.hidden = true;
++        }, 190);
++    }
++    function _v227RenderNotificationPanel() {
++        const host = _0x000f('notificationPanelBody');
++        if (!host) return;
++        const items = Array.isArray(_0x0003.data.notifications) ? [..._0x0003.data.notifications].reverse() : [];
++        host.innerHTML = items.length ? items.map((item) => {
++            const extra = Number(item.extraCount || 0) > 0 ? `<span class="notification-extra">+${Number(item.extraCount)}개</span>` : '';
++            const time = _0x0008(item.at);
++            if (item.type === 'chat-message') {
++                return `<div class="notification-row ${item.read ? '' : 'unread'}"><button type="button" class="notification-row-main" data-notification-open="${_0x0005(item.id)}" style="border:0;background:transparent;text-align:left;padding:0;color:inherit;min-width:0"><b>${_0x0005(item.roomName || '채팅방')} · ${_0x0005(item.senderName || '사용자')}${extra}</b><span>${_0x0005(item.preview || '새 메시지')}</span><small>${time}</small></button></div>`;
++            }
++            return `<div class="notification-row ${item.read ? '' : 'unread'}"><button type="button" class="notification-row-main" data-notification-open="${_0x0005(item.id)}" style="border:0;background:transparent;text-align:left;padding:0;color:inherit;min-width:0"><b>방 추천</b><span>${_0x0005(item.senderName || '사용자')}님이 ${_0x0005(item.roomName || '채팅방')} 방에 참가하길 추천합니다</span><small>#${_0x0005(item.roomCode || '')} · ${time}</small></button><span class="notification-actions"><button type="button" data-notification-open="${_0x0005(item.id)}">방 열기</button><button type="button" class="block" data-notification-block="${_0x0005(item.roomCode || '')}">추천 차단</button></span></div>`;
++        }).join('') : '<div class="notification-item">알림이 없습니다.</div>';
++        host.querySelectorAll('[data-notification-open]').forEach((button) => button.addEventListener('click', () => _v227OpenNotification(button.dataset.notificationOpen)));
++        host.querySelectorAll('[data-notification-block]').forEach((button) => button.addEventListener('click', async (event) => {
++            event.stopPropagation();
++            button.disabled = true;
++            try {
++                await _0x0019('BLOCK_ROOM_RECOMMENDATIONS', { roomCode: button.dataset.notificationBlock }, 15000);
++                _0x01ba('이 방의 추천 알림을 차단했습니다.');
++            } catch (error) {
++                button.disabled = false;
++                _0x01ba(error?.message || String(error), true);
++            }
++        }));
++    }
++    async function _v227ToggleNotificationPanel() {
++        if (_0x0003.notificationPanelOpen) { _v227CloseNotificationPanel(); return; }
++        const panel = _0x000f('notificationPanel');
++        const backdrop = _0x000f('notificationPanelBackdrop');
++        if (!panel || !backdrop) return;
++        clearTimeout(_0x0003.notificationPanelTimer);
++        _0x0003.notificationPanelOpen = true;
++        _v227RenderNotificationPanel();
++        panel.hidden = false;
++        backdrop.hidden = false;
++        panel.classList.remove('leaving');
++        requestAnimationFrame(() => {
++            panel.classList.add('entering');
++            backdrop.classList.add('open');
++        });
++        for (const item of (_0x0003.data.notifications || [])) item.read = true;
+         _0x0003.data.notificationUnread = 0;
+         _0x00a1();
+         _0x0019('MARK_NOTIFICATIONS_READ', {}, 10000).catch(() => { });
+-        _0x017d('알림', _0x033b, async () => {});
+-        _0x000f('modalCancel').hidden = true;
+-        _0x000f('modalConfirm').textContent = '확인';
+     }
++    async function _v227OpenNotification(id) {
++        const item = (_0x0003.data.notifications || []).find((n) => String(n.id) === String(id));
++        if (!item) return;
++        try {
++            let room = (_0x0003.data.rooms || []).find((r) => r.code === item.roomCode);
++            if (!room && item.type === 'room-recommendation') {
++                room = await _0x0019('JOIN_ROOM', { code: item.roomCode }, 20000);
++            }
++            if (!room) throw new Error('해당 대화방을 찾을 수 없습니다.');
++            _0x0003.selectedRoomCode = item.roomCode;
++            if (item.type === 'chat-message') {
++                _0x0003.selectedUserId = item.targetUserId || null;
++                _0x0003.view = 'conversation';
++            } else {
++                _0x0003.selectedUserId = null;
++                _0x0003.view = 'room';
++            }
++            _v227CloseNotificationPanel();
++            _0x0092(null);
++        } catch (error) { _0x01ba(error?.message || String(error), true); }
++    }
++    function _0x0339() { return _v227ToggleNotificationPanel(); }
+     function _0x033e(_0x033f) {
+-        _0x017d('방 추천', `<p class="room-recommend-note">추천을 받을 사용자의 이름을 정확히 입력하세요. 현재 접속 중이며 이 방에 아직 참가하지 않은 사용자에게 추천 알림을 보냅니다.</p><div class="field"><label>사용자 이름</label><input id="recommendUserName" maxlength="24" autocomplete="off" placeholder="사용자 이름"></div>`, async () => {
+-            const _0x0340 = String(_0x000f('recommendUserName')?.value || '').trim();
+-            if (!_0x0340) throw new Error('사용자 이름을 입력하세요.');
+-            const _0x0341 = await _0x0019('SEND_ROOM_RECOMMENDATION', { code: _0x033f.code, targetName: _0x0340 }, 20000);
+-            _0x01ba(`${_0x0340}님에게 ${_0x033f.name} 방 추천을 보냈습니다.`);
+-            return _0x0341;
++        _0x0003.recommendSearchResults = [];
