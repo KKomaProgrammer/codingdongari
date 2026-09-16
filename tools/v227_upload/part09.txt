@@ -1,0 +1,68 @@
+했습니다.'); }
++                catch (error) { _0x01ba(error?.message || String(error), true); }
++            });
++        } catch (error) { _0x01ba(error?.message || String(error), true); }
++    }
++    function _v227ImportAccountModal(prelogin = false) {
++        _0x017d('계정 가져오기', `<p class="account-help">다른 기기에서 복사한 계정 고유 코드를 입력하세요. 이 기기에 이미 다른 계정이 등록되어 있으면 가져올 수 없습니다.</p><div class="field"><label>계정 코드</label><input id="accountImportCode" maxlength="180" autocomplete="off" placeholder="ELS-..."></div>`, async () => {
++            const accountCode = String(_0x000f('accountImportCode')?.value || '').trim();
++            if (!accountCode) throw new Error('계정 코드를 입력하세요.');
++            const fingerprintHash = await _v227DeviceFingerprint();
++            const result = await _0x0019('IMPORT_ACCOUNT_CODE', { accountCode, fingerprintHash }, 25000);
++            if (result?.identity?.name) _0x01ba(`${result.identity.name} 계정 정보를 가져왔습니다.`);
++            if (prelogin) setTimeout(() => _0x0092(null), 0);
++        });
++        _0x000f('modalConfirm').textContent = '가져오기';
++    }
++    function _v227DeleteAccountModal() {
++        _0x017d('계정 탈퇴', '<p class="account-help">계정을 탈퇴하면 닉네임과 이 기기의 계정 연결이 해제됩니다. 방 추천 기록과 차단 기록도 계정과 함께 삭제됩니다. 계속하시겠습니까?</p>', async () => {
++            await _0x0019('DELETE_ACCOUNT', {}, 25000);
++            _0x01ba('계정 탈퇴가 완료되었습니다.');
++        });
++        _0x000f('modalConfirm').textContent = '탈퇴';
++    }
+     function _0x01a0() {
+         const _0x01a1 = new Date();
+         const _0x01a2 = (_0x01a3) => String(_0x01a3).padStart(2, '0');
+diff --git a/manifest.json b/manifest.json
+index 210d9c7..328ab33 100644
+--- a/manifest.json
++++ b/manifest.json
+@@ -1,7 +1,7 @@
+ {
+   "manifest_version": 3,
+   "name": "이준우가 만든 종합 채팅 확장프로램",
+-  "version": "2.2.6",
++  "version": "2.2.7",
+   "description": "모든 사이트에서 사용할 수 있는 다중 방 실시간 채팅",
+   "minimum_chrome_version": "116",
+   "permissions": [
+diff --git a/shared/settings-fetch.js b/shared/settings-fetch.js
+index 6de035b..a5d12ce 100644
+--- a/shared/settings-fetch.js
++++ b/shared/settings-fetch.js
+@@ -4,6 +4,7 @@
+     const STATUS_URL = `${API_BASE}/current/status`;
+     const UPDATE_PACKAGE_URL = `${API_BASE}/current/update-package`;
+     const CHAT_BACKUP_URL = `${API_BASE}/current/chat-backup`;
++    const ACCOUNT_URL = `${API_BASE}/current/account`;
+     const BACKUP_URL = `${API_BASE}/backup`;
+ 
+     async function requestJson(url, options = {}, timeout = 12000) {
+@@ -86,5 +87,15 @@
+         }, timeout);
+     }
+ 
+-    global.EntrySettingsFetch = { API_BASE, API_URL, STATUS_URL, UPDATE_PACKAGE_URL, BACKUP_URL, CHAT_BACKUP_URL, fetchStatus, fetchSettings, fetchUpdatePackage, backupMessages };
++    async function accountRequest(action, payload = {}, { timeout = 15000 } = {}) {
++        action = String(action || '').trim();
++        if (!action) throw new Error('계정 요청 종류가 비어 있습니다.');
++        return requestJson(ACCOUNT_URL, {
++            method: 'POST',
++            headers: { 'Content-Type': 'application/json' },
++            body: JSON.stringify({ action, ...(payload && typeof payload === 'object' ? payload : {}) }),
++        }, timeout);
++    }
++
++    global.EntrySettingsFetch = { API_BASE, API_URL, STATUS_URL, UPDATE_PACKAGE_URL, BACKUP_URL, CHAT_BACKUP_URL, ACCOUNT_URL, fetchStatus, fetchSettings, fetchUpdatePackage, backupMessages, accountRequest };
+ })(globalThis);
