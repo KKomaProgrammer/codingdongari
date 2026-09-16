@@ -1,0 +1,67 @@
+eme-google .status{color:#5f6368}.panel.theme-google .status,.panel.theme-google .iconbtn{background:#f1f3f4}.panel.theme-google .primary{background:#0b57d0}.panel.theme-google .roomrow.active,.panel.theme-google .child.active,.panel.theme-google .msg.mine .bubble{background:#d3e3fd;color:#041e49}.panel.theme-google .roomrow.active .roomicon{background:#d3e3fd;color:#0b57d0}.panel.theme-google .conversation,.panel.theme-google .messages{background:#f8fafd}.panel.theme-google .field input:focus{border-color:#0b57d0;box-shadow:0 0 0 3px rgba(11,87,208,.12)}.panel.theme-google .role{background:#d3e3fd;color:#0b57d0}.panel.theme-google .roomactions button:hover{background:#edf3fe;border-color:#a8c7fa}
++    .panel.theme-naver{border-color:#e1e4e8;font-family:Arial,"Noto Sans KR",system-ui,sans-serif}.panel.theme-naver .top{background:#fff;border-bottom-color:#e6e8eb}.panel.theme-naver .brandcopy b{color:#202428}.panel.theme-naver .brandcopy small,.panel.theme-naver .status{color:#66717e}.panel.theme-naver .status,.panel.theme-naver .iconbtn{background:#f4f6f8}.panel.theme-naver .primary{background:linear-gradient(135deg,#10c8d2,#3381fa 55%,#5b77fb)}.panel.theme-naver .roomrow.active,.panel.theme-naver .child.active,.panel.theme-naver .msg.mine .bubble{background:#e9f7ff;color:#173a57}.panel.theme-naver .roomrow.active .roomicon{background:linear-gradient(135deg,#d7fbfc,#dbe7ff);color:#2674e8}.panel.theme-naver .conversation,.panel.theme-naver .messages{background:#f5f7f9}.panel.theme-naver .field input:focus{border-color:#3381fa;box-shadow:0 0 0 3px rgba(51,129,250,.12)}.panel.theme-naver .role{background:#e4f8fb;color:#147e91}.panel.theme-naver .roomactions button:hover{background:#eff9ff;border-color:#b9dff7}
+   </style>
+   <button class="launcher" id="launcher" aria-label="채팅 열기">
+     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v10H9l-4 3v-13Z"></path><path d="M8 9h8M8 12h5"></path></svg>
+@@ -101,6 +113,8 @@
+   <section class="panel" id="panel" hidden>
+     <header class="top"><div class="brand"><img class="brandicon" src="${_0x000e}" alt=""><span class="brandcopy"><b>채팅창</b><small>종합 메신저</small></span></div><div class="topright"><span class="status"><i class="dot" id="statusDot"></i><span id="statusText">연결 필요</span></span><button class="iconbtn notifybtn" id="notificationButton" type="button" aria-label="알림" title="알림"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path></svg><i class="notify-unread-dot" id="notificationDot" hidden></i></button><button class="iconbtn" id="closePanel" aria-label="닫기">×</button></div></header>
+     <div id="panelBody"></div>
++    <div class="notification-panel-backdrop" id="notificationPanelBackdrop" hidden></div>
++    <section class="notification-panel" id="notificationPanel" hidden aria-label="알림"><header class="notification-panel-head"><b>알림</b><button id="notificationPanelClose" type="button" aria-label="알림 닫기">×</button></header><div class="notification-panel-body" id="notificationPanelBody"></div></section>
+   </section>
+   <div class="modalback" id="modalBack" hidden><section class="modal"><h3 id="modalTitle"></h3><div id="modalContent"></div><div class="modalerror" id="modalError"></div><div class="modalactions"><button class="secondary" id="modalCancel">취소</button><button class="primary" id="modalConfirm">확인</button></div></section></div>
+   <div class="toast" id="toast" hidden></div>
+@@ -141,6 +155,8 @@
+             if (_0x000f('messageInput'))
+                 _0x00aa();
+             _0x0003.data = _0x0218.state || _0x0003.data;
++            _v227ApplyTheme(_0x0003.data.theme || 'default');
++            if (_0x0003.notificationPanelOpen) _v227RenderNotificationPanel();
+             _0x0080();
+             _0x0092(_0x0219, _0x021a);
+             return;
+@@ -185,7 +201,9 @@
+     _0x0036();
+     _0x017a();
+     _0x000f('closePanel').addEventListener('click', () => { _0x01e0(); _0x0342(); _0x0340(true); _0x007a(false); });
+-    _0x000f('notificationButton').addEventListener('click', () => _0x0339());
++    _0x000f('notificationButton').addEventListener('click', () => _v227ToggleNotificationPanel());
++    _0x000f('notificationPanelClose').addEventListener('click', () => _v227CloseNotificationPanel());
++    _0x000f('notificationPanelBackdrop').addEventListener('click', () => _v227CloseNotificationPanel());
+     _0x000f('modalCancel').addEventListener('click', () => _0x0181());
+     _0x000f('modalBack').addEventListener('click', (_0x0026) => { if (_0x0026.target === _0x000f('modalBack'))
+         _0x0181(); });
+@@ -650,24 +668,166 @@
+         });
+     }
+ 
+-    function _0x0339() {
+-        const _0x033a = Array.isArray(_0x0003.data.notifications) ? [..._0x0003.data.notifications].reverse() : [];
+-        const _0x033b = _0x033a.length ? `<div class="notification-list">${_0x033a.map((_0x033c) => `<div class="notification-item ${_0x033c.read ? '' : 'unread'}"><div><b>${_0x0005(_0x033c.senderName || '사용자')}</b>님이 <b>${_0x0005(_0x033c.roomName || '채팅방')}</b> 방에 참가하길 추천합니다</div><small>#${_0x0005(_0x033c.roomCode || '')} · ${_0x0008(_0x033c.at)}</small></div>`).join('')}</div>` : '<div class="notification-item">알림이 없습니다.</div>';
+-        for (const _0x033d of _0x033a) _0x033d.read = true;
++    async function _v227DeviceFingerprint() {
++        if (/^[a-f0-9]{64}$/i.test(_0x0003.deviceFingerprint || '')) return _0x0003.deviceFingerprint.toLowerCase();
++        let webgl = '';
++        try {
++            const canvas = document.createElement('canvas');
++            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
++            if (gl) {
++                const ext = gl.getExtension('WEBGL_debug_renderer_info');
++                const vendor = ext ? gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR);
++                const renderer = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
++                webgl = `${vendor || ''}|${renderer || ''}`;
++            }
++        } catch (_) { }
++        let uaHigh = {};
++        try {
++            if (navigator.userAgentData?.getHighEntropyValues)
++                uaHigh = await navigator.userAgentData.getHighEntropyValues(['architecture', 'bitness', 'model', 'platformVersion', 'wow64']);
++        } catch (_) { }
++        const stableUserAgent = String(navigator.userAgent || '')
++            .replace(/(?:Chrome|Chromium|Edg|OPR|CriOS)\/[0-9.]+/g, (m) => m.split('/')[0])
++            .replace(/Version\/[0-9.]+/g, 'Version');
++        const deviceFingerprint = [
++            stableUserAgent, navigator.platform || '', navigator.userAgentData?.platform || '', navigator.userAgentData?.mobile ? 'mobile' : 'desktop',
++            uaHigh.architecture || '', uaHigh.bitness || '', uaHigh.model || '', uaHigh.wow64 ? 'wow64' : '',
++            (navigator.languages || []).join(','), navigator.hardwareConcurrency || 0, navigator.devic
