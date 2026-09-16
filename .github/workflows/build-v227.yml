@@ -1,0 +1,85 @@
+name: Build v2.2.7
+
+on:
+  push:
+    paths:
+      - '.github/workflows/build-v227.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rebuild v2.2.7 from verified patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/pkg /tmp/v226.zip /tmp/v227.patch
+          mkdir -p /tmp/pkg
+          curl -fL -o /tmp/v226.zip "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/message_V2.2.6.zip"
+          unzip -q /tmp/v226.zip -d /tmp/pkg
+          cat tools/v227_upload/part*.txt > /tmp/v227.patch
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/v227.patch')
+          s=p.read_text()
+          s=s.replace("_0x00c7 + (_0x00c8.users || []).filter((_0x0346) => _0x00c7 + 0 || _0x0346.online).length", "_0x00c7 + (_0x00c8.users || []).filter((_0x0346) => _0x0346.online).length")
+          p.write_text(s)
+          PY
+          cd /tmp/pkg
+          git init -q
+          git config user.email actions@example.invalid
+          git config user.name actions
+          git add .
+          git commit -qm base
+          git apply /tmp/v227.patch
+
+      - name: Validate v2.2.7 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          find /tmp/pkg -type f -name '*.js' -print0 | while IFS= read -r -d '' f; do node --check "$f" >/dev/null; done
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=Path('/tmp/pkg')
+          m=json.loads((r/'manifest.json').read_text())
+          b=json.loads((r/'build-info.json').read_text())
+          bg=(r/'background.js').read_text()
+          chat=(r/'content/chat.js').read_text()
+          settings=(r/'shared/settings-fetch.js').read_text()
+          assert m['version']=='2.2.7'
+          assert m.get('key')
+          assert b['version']=='2.2.7'
+          assert b['productId']=='junwoo-comprehensive-chat-extension'
+          assert b.get('buildId')=='843af0ea-0c1f-477b-9a85-548ecd518000'
+          for marker in ['SEARCH_ACCOUNTS','BLOCK_ROOM_RECOMMENDATIONS','COPY_ACCOUNT_CODE','IMPORT_ACCOUNT_CODE','DELETE_ACCOUNT','SET_THEME','chat-message','extraCount']:
+              assert marker in bg, marker
+          for marker in ['내 채팅','notification-panel','notificationPanelIn','notificationPanelOut','data-notification-open','recommend-result','theme-google','theme-naver','계정 코드 복사','계정 가져오기']:
+              assert marker in chat, marker
+          assert 'ACCOUNT_URL' in settings and 'accountRequest' in settings
+          assert (r/'SUPABASE_SETUP-v2.2.7.md').exists()
+          files={str(p.relative_to(r)) for p in r.rglob('*') if p.is_file() and '.git/' not in str(p)}
+          assert set(b['managedFiles'])==files, (set(b['managedFiles'])-files, files-set(b['managedFiles']))
+          print('v2.2.7 validation OK', b['buildId'], len(files))
+          PY
+
+      - name: Build and commit update ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f message_V2.2.7.zip
+          cd /tmp/pkg
+          rm -rf .git
+          zip -qr -9 "$GITHUB_WORKSPACE/message_V2.2.7.zip" .
+          unzip -t "$GITHUB_WORKSPACE/message_V2.2.7.zip" >/dev/null
+          cd "$GITHUB_WORKSPACE"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add message_V2.2.7.zip
+          git commit -m "release: add message_V2.2.7.zip"
+          git push
