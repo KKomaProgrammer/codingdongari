@@ -1,0 +1,100 @@
+name: Build v2.2.8
+
+on:
+  push:
+    paths:
+      - '.github/workflows/build-v228.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build v2.2.8 from verified v2.2.7
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v228 /tmp/v227.zip
+          mkdir -p /tmp/v228
+          curl -fL -o /tmp/v227.zip "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/message_V2.2.7.zip"
+          unzip -q /tmp/v227.zip -d /tmp/v228
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          root=Path('/tmp/v228')
+          p=root/'content/chat.js'
+          s=p.read_text(encoding='utf-8')
+          old='.panel.theme-google .primary{background:#0b57d0}'
+          new='.panel.theme-google .primary{background:#0b57d0}.panel.theme-google .composerow .primary{color:#fff}'
+          assert old in s
+          s=s.replace(old,new,1)
+          oldn='.panel.theme-naver .primary{background:linear-gradient(135deg,#10c8d2,#3381fa 55%,#5b77fb)}'
+          newn=oldn+'.panel.theme-naver .composerow .primary{background:#03c75a;color:#fff}.panel.theme-naver .composerow .photo-btn{background:#03c75a;color:#fff}'
+          assert oldn in s
+          s=s.replace(oldn,newn,1)
+          p.write_text(s,encoding='utf-8')
+
+          m=json.loads((root/'manifest.json').read_text(encoding='utf-8'))
+          m['version']='2.2.8'
+          (root/'manifest.json').write_text(json.dumps(m,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+
+          b=json.loads((root/'build-info.json').read_text(encoding='utf-8'))
+          b['version']='2.2.8'
+          b['buildId']='b16fc176-df00-4c33-8d99-63ce6aa4af76'
+          b['createdAt']='2026-09-16T11:31:30.015951Z'
+          (root/'build-info.json').write_text(json.dumps(b,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          PY
+
+      - name: Verify exact modified files and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '75d530d425c614b22fec9ebf63c47665080e45425e83a697d7123a4924257d87  /tmp/v228/content/chat.js' | sha256sum -c -
+          echo '748cc05fffef90a14fedb8d7e6e523e120d1d1d4bc810e950b12ce050a3b40f3  /tmp/v228/manifest.json' | sha256sum -c -
+          echo '56aad3250afc35f651a7874c180888ed0783ed860c3d8a6d116e63824bc0487d  /tmp/v228/build-info.json' | sha256sum -c -
+          find /tmp/v228 -type f -name '*.js' -print0 | while IFS= read -r -d '' f; do node --check "$f" >/dev/null; done
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          r=Path('/tmp/v228')
+          m=json.loads((r/'manifest.json').read_text())
+          b=json.loads((r/'build-info.json').read_text())
+          c=(r/'content/chat.js').read_text()
+          assert m['version']=='2.2.8'
+          assert b['version']=='2.2.8'
+          assert b['buildId']=='b16fc176-df00-4c33-8d99-63ce6aa4af76'
+          assert '.panel.theme-google .primary{background:#0b57d0}' in c
+          assert '.panel.theme-google .composerow .primary{color:#fff}' in c
+          assert '.panel.theme-naver .composerow .primary{background:#03c75a;color:#fff}' in c
+          assert '.panel.theme-naver .composerow .photo-btn{background:#03c75a;color:#fff}' in c
+          actual={str(p.relative_to(r)) for p in r.rglob('*') if p.is_file()}
+          assert set(b['managedFiles'])==actual
+          print('v2.2.8 source verification OK')
+          PY
+
+      - name: Package and commit v2.2.8
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f message_V2.2.8.zip
+          (cd /tmp/v228 && zip -qr -9 "$GITHUB_WORKSPACE/message_V2.2.8.zip" .)
+          unzip -t message_V2.2.8.zip >/dev/null
+          python - <<'PY'
+          import json, zipfile
+          with zipfile.ZipFile('message_V2.2.8.zip') as z:
+              assert z.testzip() is None
+              assert json.loads(z.read('manifest.json'))['version']=='2.2.8'
+              bi=json.loads(z.read('build-info.json'))
+              assert bi['version']=='2.2.8'
+              assert bi['buildId']=='b16fc176-df00-4c33-8d99-63ce6aa4af76'
+          print('ZIP verification OK')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add message_V2.2.8.zip
+          git commit -m 'release: add message_V2.2.8.zip'
+          git push
