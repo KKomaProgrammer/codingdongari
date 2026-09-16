@@ -1,0 +1,19 @@
+name: RED v2.2.5 feature tests
+on:
+  push:
+    paths:
+      - '.github/workflows/test-v225-red.yml'
+  workflow_dispatch:
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download current v2.2.4
+        run: |
+          rm -rf /tmp/pkg /tmp/pkg.zip
+          mkdir -p /tmp/pkg
+          curl -fL -o /tmp/pkg.zip "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/message_V2.2.4.zip"
+          unzip -q /tmp/pkg.zip -d /tmp/pkg
+      - name: Desired behavior must fail on v2.2.4
+        run: python tools/test_v225.py /tmp/pkg
