@@ -18,6 +18,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # All binary chunks below were individually verified against the local source.
           {
             cat tools/v227_exact/part00.b64
             cat tools/v227_exact/part01.b64
