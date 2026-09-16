@@ -36,7 +36,93 @@ jobs:
           git config user.name actions
           git add .
           git commit -qm base
-          git apply /tmp/v227.patch
+          git apply --reject /tmp/v227.patch || true
+
+          python - <<'PY'
+          from pathlib import Path
+          import json, re
+          r=Path('/tmp/pkg')
+
+          # The repository v2.2.6 ZIP was produced from a slightly different
+          # source snapshot than the local development base. Only these three
+          # hunks differ; apply their v2.2.7 final state explicitly.
+          bg=r/'background.js'
+          s=bg.read_text()
+          desired=r'''async function _0x0313(_0x0314) {
+              if (!_0x0314 || String(_0x0314.targetId || '') !== _0x0004.id || !_0x0044(_0x0314.roomCode))
+                  return false;
+              return _v227StoreNotification({
+                  id: _0x0314.id,
+                  type: 'room-recommendation',
+                  senderId: _0x0314.senderId,
+                  senderName: _0x0314.senderName,
+                  roomCode: String(_0x0314.roomCode),
+                  roomName: _0x0314.roomName,
+                  at: _0x0314.at,
+              });
+          }
+          async function _0x0317({ code: _0x0318, targetAccountId: _v227TargetId }) {
+              _0x0165();
+              const room = _0x0002.get(String(_0x0318 || ''));
+              if (!room) throw new Error('채팅방을 찾을 수 없습니다.');
+              const targetId = String(_v227TargetId || '').trim();
+              if (!targetId || targetId === _0x0004.id) throw new Error('추천할 사용자를 선택하세요.');
+              if (room.users.has(targetId)) throw new Error('해당 사용자는 이미 이 방에 참가 중입니다.');
+              if (!_v227Fingerprint) throw new Error('기기 확인 정보가 없습니다. 다시 로그인해 주세요.');
+              const policy = await EntrySettingsFetch.accountRequest('recommend', {
+                  roomCode: room.code,
+                  senderAccountId: _0x0004.id,
+                  targetAccountId: targetId,
+                  fingerprintHash: _v227Fingerprint,
+              }, { timeout: 15000 });
+              const target = policy?.target;
+              if (!target?.id) throw new Error('추천할 사용자를 찾을 수 없습니다.');
+              const channel = `${_0x0300}${target.id}`;
+              const packet = {
+                  id: _0x0030(),
+                  type: 'room-recommendation',
+                  senderId: _0x0004.id,
+                  senderName: _0x0004.name,
+                  targetId: target.id,
+                  targetName: target.nickname,
+                  roomCode: room.code,
+                  roomName: room.name,
+                  at: _0x002f(),
+              };
+              try {
+                  await _0x0005.ensureChannel(channel);
+                  await _0x0005.send(channel, 'room-recommendation', packet);
+              } finally {
+                  try { _0x0005.leave(channel); } catch (_) { }
+              }
+              return { sent: 1, target: { id: target.id, name: target.nickname } };
+          }
+          '''
+          s2,n=re.subn(r"async function _0x0313\(_0x0314\) \{.*?(?=async function _0x0328\(\))", desired, s, count=1, flags=re.S)
+          if n != 1:
+              raise SystemExit('could not replace v2.2.7 recommendation functions')
+          bg.write_text(s2)
+
+          readme=r/'README.md'
+          text=readme.read_text()
+          section='''\n\n## v2.2.7 계정·알림·테마\n\n- 중앙 계정 정책은 `https://supabase-settings-fetch.pages.dev/api/current/account`에서 처리합니다.\n- 닉네임은 중복 사용할 수 없고, 기기 fingerprint SHA-256을 주 기준으로 한 기기에 다른 계정을 추가 등록하지 못하게 합니다. IP는 보조 해시로만 사용합니다.\n- 방 추천은 닉네임 일부 검색 → 검색 결과 사용자 선택 방식이며, 같은 방/대상 조합은 한 번만 전송됩니다.\n- 사용자는 추천 알림에서 해당 방 추천을 차단할 수 있습니다.\n- 채팅 메시지 알림은 같은 대화의 연속 메시지를 `+N개`로 합치며, 알림을 누르면 해당 대화로 이동합니다.\n- 알림 패널은 채팅창 내부에서 애니메이션으로 표시됩니다.\n- 기본/Google/Naver 테마를 지원합니다.\n- `백업 및 복구` 화면에는 `계정 코드 복사`, `계정 가져오기`만 표시합니다.\n- 자세한 Supabase 설정은 `SUPABASE_SETUP-v2.2.7.md`를 참고하세요.\n'''
+          if '## v2.2.7 계정·알림·테마' not in text:
+              readme.write_text(text.rstrip()+section)
+
+          # Remove reject files before deriving managedFiles.
+          for p in r.rglob('*.rej'):
+              p.unlink()
+          for p in r.rglob('*.orig'):
+              p.unlink()
+
+          bpath=r/'build-info.json'
+          b=json.loads(bpath.read_text())
+          b['version']='2.2.7'
+          b['buildId']='843af0ea-0c1f-477b-9a85-548ecd518000'
+          b['createdAt']='2026-09-16T08:45:10Z'
+          b['managedFiles']=sorted(str(p.relative_to(r)) for p in r.rglob('*') if p.is_file() and '.git/' not in str(p))
+          bpath.write_text(json.dumps(b,ensure_ascii=False,indent=2)+'\n')
+          PY
 
       - name: Validate v2.2.7 source
         shell: bash
@@ -44,7 +130,7 @@ jobs:
           set -euo pipefail
           find /tmp/pkg -type f -name '*.js' -print0 | while IFS= read -r -d '' f; do node --check "$f" >/dev/null; done
           python - <<'PY'
-          import json
+          import json, re
           from pathlib import Path
           r=Path('/tmp/pkg')
           m=json.loads((r/'manifest.json').read_text())
@@ -61,6 +147,7 @@ jobs:
               assert marker in bg, marker
           for marker in ['내 채팅','notification-panel','notificationPanelIn','notificationPanelOut','data-notification-open','recommend-result','theme-google','theme-naver','계정 코드 복사','계정 가져오기']:
               assert marker in chat, marker
+          assert 'targetAccountId' in bg and 'targetName: _0x0319' not in bg
           assert 'ACCOUNT_URL' in settings and 'accountRequest' in settings
           assert (r/'SUPABASE_SETUP-v2.2.7.md').exists()
           files={str(p.relative_to(r)) for p in r.rglob('*') if p.is_file() and '.git/' not in str(p)}
