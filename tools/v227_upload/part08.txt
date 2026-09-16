@@ -1,0 +1,54 @@
+<div class="home-actions"><button id="createRoom">＋ 방 만들기</button><button id="joinRoom">방 참가</button></div><div class="room-list" id="roomList">${_0x00c5.length ? _0x00c5.map(_0x00cc).join('') : '<div class="empty-rooms">연결된 방이 없습니다.<br>방을 만들거나 4자리 방 번호로 참가해 보세요.</div>'}</div><div class="section-label"><span>백업 및 복구</span></div><div class="backup-actions"><button id="exportBackup">백업 내보내기</button><button id="importBackup">파일 복구</button></div><div class="section-label"><span>표시 단축키</span></div><div class="shortcut-card"><div class="shortcut-main"><span class="shortcut-copy"><b>이 페이지에서 빠르게 숨기기</b><small>${_0x0005(_0x0032())} 키를 빠르게 두 번 누르면 채팅창과 아이콘을 숨기거나 다시 표시합니다.</small></span><select class="shortcut-select" id="shortcutKeySelect" aria-label="숨김 단축키">${_0x0018.map((_0x00c9) => `<option value="${_0x00c9}" ${_0x00c9 === _0x0003.shortcutKey ? 'selected' : ''}>${_0x0005(_0x0032(_0x00c9))} ×2</option>`).join('')}</select><label class="switch" title="단축키 켜기/끄기"><input id="shortcutEnabled" type="checkbox" ${_0x0003.shortcutEnabled ? 'checked' : ''}><span class="switch-track"></span></label></div></div></div></div></section>`;
++        _0x00c2.innerHTML = `<section class="navview"><header class="navhead"><span class="navtitle"><b>채팅</b><small>여러 방을 동시에 연결하고 대화를 이어갈 수 있습니다.</small></span></header><div class="navbody"><div class="rooms-home">${_0x0230}<div class="home-profile">${_0x00b0(_0x00c3, _0x00c4)}<span class="profilecopy"><b>${_0x0005(_0x00c3)}</b><small>내 프로필</small></span><span class="profile-actions"><button class="tinybtn" id="editProfilePhoto">사진</button><button class="tinybtn" id="editName">이름</button></span></div><div class="home-stats"><div class="home-stat"><b>${_0x00c5.length}</b><small>참가 중인 방</small></div><div class="home-stat"><b>${_0x00c6}</b><small>현재 연결 인원</small></div><div class="home-stat"><b>${_0x009e()}</b><small>읽지 않은 메시지</small></div></div><div class="section-label"><span>내 채팅</span></div><button class="self-chat-card" id="openSelfChat">${_0x00b0(_0x00c3, _0x00c4, 'member-avatar')}<span class="member-copy"><b>나와의 채팅</b><small>메모와 사진을 나에게 저장</small></span><span class="member-arrow">›</span></button><div class="section-label"><span>채팅방</span></div><div class="home-actions"><button id="createRoom">＋ 방 만들기</button><button id="joinRoom">방 참가</button></div><div class="room-list" id="roomList">${_0x00c5.length ? _0x00c5.map(_0x00cc).join('') : '<div class="empty-rooms">연결된 방이 없습니다.<br>방을 만들거나 4자리 방 번호로 참가해 보세요.</div>'}</div><div class="section-label"><span>백업 및 복구</span></div><div class="backup-actions"><button id="copyAccountCode">계정 코드 복사</button><button id="importAccountCode">계정 가져오기</button></div><div class="section-label"><span>채팅창 디자인</span></div><div class="theme-row"><button type="button" data-theme="default" class="${(_0x0003.data.theme || 'default') === 'default' ? 'active' : ''}">기본</button><button type="button" data-theme="google" class="${_0x0003.data.theme === 'google' ? 'active' : ''}">Google</button><button type="button" data-theme="naver" class="${_0x0003.data.theme === 'naver' ? 'active' : ''}">Naver</button></div><div class="section-label"><span>계정 관리</span></div><button class="danger-account" id="deleteAccount" type="button">계정 탈퇴</button><div class="section-label"><span>표시 단축키</span></div><div class="shortcut-card"><div class="shortcut-main"><span class="shortcut-copy"><b>이 페이지에서 빠르게 숨기기</b><small>${_0x0005(_0x0032())} 키를 빠르게 두 번 누르면 채팅창과 아이콘을 숨기거나 다시 표시합니다.</small></span><select class="shortcut-select" id="shortcutKeySelect" aria-label="숨김 단축키">${_0x0018.map((_0x00c9) => `<option value="${_0x00c9}" ${_0x00c9 === _0x0003.shortcutKey ? 'selected' : ''}>${_0x0005(_0x0032(_0x00c9))} ×2</option>`).join('')}</select><label class="switch" title="단축키 켜기/끄기"><input id="shortcutEnabled" type="checkbox" ${_0x0003.shortcutEnabled ? 'checked' : ''}><span class="switch-track"></span></label></div></div></div></div></section>`;
+         _0x000f('shortcutIntroClose')?.addEventListener('click', async () => { await _0x0019('ACK_SHORTCUT_INTRO').catch(() => {}); });
+         _0x000f('editName').addEventListener('click', _0x01af);
+         _0x000f('editProfilePhoto').addEventListener('click', _0x019b);
+@@ -836,8 +998,15 @@
+         });
+         _0x000f('createRoom').addEventListener('click', _0x01b0);
+         _0x000f('joinRoom').addEventListener('click', _0x01b2);
+-        _0x000f('exportBackup').addEventListener('click', _0x01a4);
+-        _0x000f('importBackup').addEventListener('click', _0x01aa);
++        _0x000f('copyAccountCode').addEventListener('click', _v227CopyAccountCodeModal);
++        _0x000f('importAccountCode').addEventListener('click', () => _v227ImportAccountModal(false));
++        _0x000f('deleteAccount').addEventListener('click', _v227DeleteAccountModal);
++        _0x00c2.querySelectorAll('[data-theme]').forEach((button) => button.addEventListener('click', async () => {
++            try {
++                const result = await _0x0019('SET_THEME', { theme: button.dataset.theme }, 10000);
++                _v227ApplyTheme(result?.theme || button.dataset.theme);
++            } catch (error) { _0x01ba(error?.message || String(error), true); }
++        }));
+         _0x000f('shortcutEnabled').addEventListener('change', async () => {
+             _0x0003.shortcutEnabled = Boolean(_0x000f('shortcutEnabled').checked);
+             await _0x003a();
+@@ -1456,6 +1625,55 @@
+             await _0x0019('SET_PROFILE_IMAGE', { imageDataUrl: _0x019f }, 20000);
+         });
+     }
++    async function _v227CopyText(text) {
++        text = String(text || '');
++        try {
++            await navigator.clipboard.writeText(text);
++            return true;
++        } catch (_) {
++            const area = document.createElement('textarea');
++            area.value = text;
++            area.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
++            document.documentElement.appendChild(area);
++            area.select();
++            const ok = document.execCommand('copy');
++            area.remove();
++            if (!ok) throw new Error('클립보드에 복사하지 못했습니다.');
++            return true;
++        }
++    }
++    async function _v227CopyAccountCodeModal() {
++        try {
++            const result = await _0x0019('COPY_ACCOUNT_CODE', {}, 15000);
++            const code = String(result?.accountCode || '');
++            if (!code) throw new Error('계정 코드를 가져오지 못했습니다.');
++            _0x017d('계정 코드 복사', `<p class="account-help">아래 계정 고유 코드를 복사하고, 다른 계정에서 계정 가져오기를 사용하여 계정 정보를 가져와 보세요. 로그인 전 불러올 수도 있습니다</p><div class="account-code-box" id="accountCodeValue">${_0x0005(code)}</div><button class="primary" id="copyAccountCodeNow" type="button" style="width:100%;margin-top:10px">복사</button>`, async () => {});
++            _0x000f('modalCancel').hidden = true;
++            _0x000f('modalConfirm').textContent = '닫기';
++            _0x000f('copyAccountCodeNow')?.addEventListener('click', async () => {
++                try { await _v227CopyText(code); _0x01ba('계정 코드를 복사
