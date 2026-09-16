@@ -1,0 +1,163 @@
+diff --git a/CHANGELOG-v2.2.7.md b/CHANGELOG-v2.2.7.md
+new file mode 100644
+index 0000000..59efb37
+--- /dev/null
++++ b/CHANGELOG-v2.2.7.md
+@@ -0,0 +1,12 @@
++# Entry Live Studio v2.2.7
++
++- 닉네임을 서버에서 정규화해 중복 사용을 차단합니다.
++- 기기 fingerprint SHA-256을 주 기준으로 기기당 최대 1계정을 적용하고, IP는 Cloudflare에서 salt와 함께 해시한 보조 정보로만 저장합니다. 같은 IP만으로는 계정을 차단하지 않습니다.
++- 방 추천 사용자 검색은 닉네임 일부 검색을 지원하며 검색 결과에서 사용자를 선택해 전송합니다.
++- 같은 방을 같은 사용자에게는 보낸 사람이 달라도 한 번만 추천할 수 있으며, 사용자는 방 단위 추천 차단을 할 수 있습니다.
++- 채팅 메시지도 알림에 표시하며 같은 대화에서 연속으로 온 메시지는 한 항목과 +N개로 묶습니다. 알림을 누르면 해당 대화로 이동합니다.
++- 알림 목록은 채팅 박스 내부에서 페이드/슬라이드 애니메이션으로 열리고 닫힙니다.
++- 기본/Google/Naver 채팅창 테마를 추가했습니다.
++- 메인 화면의 `내 공간`을 `내 채팅`으로 변경했습니다.
++- 백업 및 복구 UI는 `계정 코드 복사`와 `계정 가져오기`만 남겼고 로그인 전 계정 가져오기도 지원합니다.
++- 계정 탈퇴 기능을 추가했습니다. 탈퇴하면 닉네임/기기 연결/추천 기록/차단 기록이 서버에서 함께 해제됩니다.
+diff --git a/CHAT_RECOVERY.md b/CHAT_RECOVERY.md
+index 3378b5d..42dc76c 100644
+--- a/CHAT_RECOVERY.md
++++ b/CHAT_RECOVERY.md
+@@ -31,3 +31,8 @@ v2.1.1에서는 **복구 코드** 표시 버튼까지 제거했습니다. 내부
+ 
+ ## v2.1.6
+ 서버 `/api/backup` 복구 경로는 사용하지 않습니다. 증거 백업은 Chrome 동기화 저장소의 암호화 레코드와 사용자가 내보낸 로컬 백업을 기준으로 합니다.
++
++
++## v2.2.7 계정 가져오기
++
++화면의 기존 JSON 내보내기/복구 버튼 대신 `계정 코드 복사`와 `계정 가져오기`를 사용합니다. 계정 코드는 닉네임/사용자 ID/프로필 계정을 다른 기기에 연결하기 위한 값이며, 로그인 전에도 가져올 수 있습니다. 메시지 원본의 로컬/동기화 보존 로직 자체는 기존대로 유지됩니다.
+diff --git a/PRIVACY.md b/PRIVACY.md
+index a2db0f9..a274877 100644
+--- a/PRIVACY.md
++++ b/PRIVACY.md
+@@ -1,4 +1,4 @@
+-# 개인정보 및 데이터 처리 — v2.1.5
++# 개인정보 및 데이터 처리 — v2.2.7
+ 
+ 이 확장 프로그램은 실시간 채팅, 로컬/동기화 백업, 사용자 JSON 백업과 사진 원본의 암호화 임시 보관 기능을 제공합니다.
+ 
+@@ -43,3 +43,12 @@ v2.1.1 화면에서는 **복구 코드** 표시, **복구 코드로 복구**, **
+ 이 확장 수정본에는 로그인 IP를 별도 증거 식별자로 저장하는 코드, IP를 이용해 삭제된 확장의 데이터를 우회 복구하는 코드, 숨은 관리자 URL에서 다른 사용자의 `chrome.storage.sync`를 원격 수집·복호화하는 코드가 없습니다.
+ 
+ 분쟁·수사 등으로 기록 제출이 필요할 때는 사용자가 직접 내보낸 백업 파일 등 필요한 범위의 자료를 신뢰할 수 있는 기관에 제공하는 구조를 권장합니다.
++
++
++## v2.2.7 계정 식별 정보
++
++중복 닉네임과 기기당 계정 제한을 위해 브라우저에서 사용자 에이전트 계열, 플랫폼, 언어, 화면 특성, 하드웨어 동시성, deviceMemory(지원 시), 터치 수, 시간대, WebGL vendor/renderer 등의 값을 조합한 뒤 SHA-256 fingerprint를 만듭니다. **원본 구성값 묶음은 계정 서버로 전송하지 않고 SHA-256 결과만 전송합니다.**
++
++Cloudflare Pages는 계정 요청을 받을 때 접속 IP를 볼 수 있습니다. `DEVICE_IP_HASH_SALT`가 설정된 경우 원 IP 대신 salt가 포함된 SHA-256 보조 해시만 Supabase에 기록합니다. IP가 같다는 이유만으로 계정 생성을 차단하지 않으며, 계정 제한의 주 기준은 기기 fingerprint입니다.
++
++계정 코드 원문은 사용자의 확장 `chrome.storage.local`에 저장하고 Supabase에는 계정 코드의 SHA-256 해시만 저장합니다. 계정 정책 테이블은 브라우저용 anon/authenticated 권한을 제거하고 Cloudflare Pages의 service-role에서만 접근합니다.
+diff --git a/README.md b/README.md
+index a1c1314..c8202f4 100644
+--- a/README.md
++++ b/README.md
+@@ -1,4 +1,4 @@
+-# 이준우가 만든 종합 채팅 확장프로램 v2.1.5
++# 이준우가 만든 종합 채팅 확장프로램 v2.2.7
+ 
+ 모든 일반 웹사이트에서 사용할 수 있는 다중 방 실시간 Chrome 메신저 확장 프로그램입니다.
+ 
+@@ -72,7 +72,7 @@ Manifest의 `<all_urls>` content script를 사용합니다. Chrome 정책상 `ch
+ 
+ ## GitHub 자동 업데이트 검사
+ 
+-현재 버전은 v2.1.5입니다. 페이지를 새로 불러올 때마다 `KKomaProgrammer/codingdongari` 저장소의 루트를 확인하고 `message_Vx.x.x.zip` 형식 중 현재 버전보다 높은 가장 최신 버전이 있으면 업데이트 창을 표시합니다.
++현재 버전은 v2.2.7입니다. 페이지를 새로 불러올 때마다 `KKomaProgrammer/codingdongari` 저장소의 루트를 확인하고 `message_Vx.x.x.zip` 형식 중 현재 버전보다 높은 가장 최신 버전이 있으면 업데이트 창을 표시합니다.
+ 
+ 개발자 모드에서 압축해제 폴더로 설치한 경우 업데이트 화면에서 현재 확장 폴더를 선택하면 ZIP 전체 파일을 검증 후 덮어쓰고 확장을 다시 로드할 수 있습니다. Chrome 웹 스토어/CRX 설치본은 Chrome의 정식 업데이트 체계를 사용해야 합니다.
+ 
+@@ -98,3 +98,16 @@ Manifest의 `<all_urls>` content script를 사용합니다. Chrome 정책상 `ch
+ - 권한만 만료된 경우 이전 핸들에 대해 접근 허용만 다시 요청합니다.
+ - 최초 연결 시 `chrome://extensions/?id=ciakccaaaajgmhljahjhpocgphlhcjbe` 출처 안내와 로드 위치 복사 감지를 제공합니다.
+ - manifest `key`로 v2.2.6 이후 unpacked 확장 ID는 `ciakccaaaajgmhljahjhpocgphlhcjbe`로 고정됩니다.
++
++
++## v2.2.7 계정·알림·테마
++
++- 중앙 계정 정책은 `https://supabase-settings-fetch.pages.dev/api/current/account`에서 처리합니다.
++- 닉네임은 중복 사용할 수 없고, 기기 fingerprint SHA-256을 주 기준으로 한 기기에 다른 계정을 추가 등록하지 못하게 합니다. IP는 보조 해시로만 사용합니다.
++- 방 추천은 닉네임 일부 검색 → 검색 결과 사용자 선택 방식이며, 같은 방/대상 조합은 한 번만 전송됩니다.
++- 사용자는 추천 알림에서 해당 방 추천을 차단할 수 있습니다.
++- 채팅 메시지 알림은 같은 대화의 연속 메시지를 `+N개`로 합치며, 알림을 누르면 해당 대화로 이동합니다.
++- 알림 패널은 채팅창 내부에서 애니메이션으로 표시됩니다.
++- 기본/Google/Naver 테마를 지원합니다.
++- `백업 및 복구` 화면에는 `계정 코드 복사`, `계정 가져오기`만 표시합니다.
++- 자세한 Supabase 설정은 `SUPABASE_SETUP-v2.2.7.md`를 참고하세요.
+diff --git a/SUPABASE_SETUP-v2.2.7.md b/SUPABASE_SETUP-v2.2.7.md
+new file mode 100644
+index 0000000..f79fe54
+--- /dev/null
++++ b/SUPABASE_SETUP-v2.2.7.md
+@@ -0,0 +1,33 @@
++# Supabase 설정 — v2.2.7
++
++## 1. SQL Editor
++
++`KKomaProgrammer/supabase-settings-fetch` 저장소의 `SUPABASE_V227.sql` 전체를 Supabase Dashboard → SQL Editor에서 한 번 실행합니다.
++
++생성되는 테이블:
++
++- `entry_chat_accounts` — 계정/고유 닉네임/계정 코드 해시
++- `entry_chat_account_devices` — 기기 fingerprint SHA-256 → 계정 매핑, 보조 IP 해시
++- `entry_chat_room_recommendations` — `(room_code, target_account_id)`를 PK로 하여 중복 추천 차단
++- `entry_chat_room_recommendation_blocks` — 사용자의 방별 추천 차단
++
++모든 테이블은 RLS를 켜고 anon/authenticated 권한을 제거합니다. 브라우저는 이 테이블에 직접 접근하지 않고 Cloudflare Pages 함수만 service-role로 접근합니다.
++
++## 2. Cloudflare Pages 환경변수
++
++기존 값에 아래 두 개를 추가합니다.
++
++- `SUPABASE_SERVICE_ROLE_KEY` — Supabase Project Settings → API의 service role/secret key. **확장 프로그램에 넣지 말고 Cloudflare secret으로만 저장합니다.**
++- `DEVICE_IP_HASH_SALT` — 충분히 긴 임의 문자열. 예: 32바이트 이상 랜덤값. 원 IP 대신 `SHA-256(salt + IP)` 보조 해시를 만들 때만 사용합니다.
++
++기존 `SUPABASE_URL`, `SUPABASE_ANON_KEY`는 그대로 유지합니다.
++
++`ALLOWED_ORIGINS`를 사용 중이면 고정 확장 ID의 origin `chrome-extension://ciakccaaaajgmhljahjhpocgphlhcjbe`도 허용 목록에 추가하세요.
++
++## 3. 보안 구조
++
++- 원본 fingerprint 구성값은 서버로 보내지 않고 브라우저에서 SHA-256한 값만 보냅니다.
++- 원본 IP는 Supabase에 저장하지 않습니다. Cloudflare가 본 IP는 `DEVICE_IP_HASH_SALT`와 함께 SHA-256한 보조값으로만 기록합니다.
++- 동일 IP만으로 계정 생성을 막지 않습니다.
++- `fingerprint_hash`는 PK라 같은 fingerprint가 다른 계정에 동시에 연결될 수 없습니다.
++- `nickname_normalized`는 UNIQUE라 대소문자/정규화 후 같은 닉네임을 중복 사용할 수 없습니다.
+diff --git a/background.js b/background.js
+index 1bc8ce0..c5a23e4 100644
+--- a/background.js
++++ b/background.js
+@@ -29,6 +29,9 @@ const _0x0300 = 'realtime:els-chat-notify-';
+ const _0x0301 = 'entryChatNotificationsV1';
+ const _0x0302 = 'entryChatScrollStateV2';
+ let _0x0303 = [];
++let _v227Fingerprint = '';
++let _v227AccountCode = '';
++let _v227Theme = 'default';
+ const _0x001b = 26000;
+ const _0x001c = 8000;
+ const _0x001d = 60000;
+@@ -93,19 +96,28 @@ async function _0x004c() {
+             'entryChatBackupHealthV1',
+             'entryChatShortcutIntroSeenV1',
+             'entryChatNotificationsV1',
++            'entryChatDeviceFingerprintV1',
++            'entryChatAccountCodeV1',
++            'entryChatThemeV1',
+         ]);
+         _0x000f = Boolean(_0x004e.entryChatTermsAcceptedV1);
+         _0x0221 = Boolean(_0x004e.entryChatShortcutIntroSeenV1);
+-        _0x0303 = (Array.isArray(_0x004e[_0x0301]) ? _0x004e[_0x0301] : []).map((_0x0304) => ({
+-            id: String(_0x0304?.id || ''),
+-            type: 'room-recommendation',
+-            senderId: String(_0x0304?.senderId || ''),
+-            senderName: _0x0031(_0x0304?.senderName || '사용자'),
+-            roomCode: String(_0x0304?.roomCode || ''),
+-            roomName: _0x0034(_0x0304?.roomName || '채팅방'),
+-            at: Number(_0x0304?.at) || 0,
+-            read: Boolean(_0x0304?.read),
+-        })).filter((_0x0305) => _0x0305.id && _0x0
