@@ -1,0 +1,154 @@
+ngth - 80);
+-    await _0x0312();
+-    _0x017e();
+-    return true;
+ }
+-async function _0x0317({ code: _0x0318, targetName: _0x0319 }) {
++async function _0x0317({ code: _0x0318, targetAccountId: _v227TargetId }) {
+     _0x0165();
+-    const _0x031a = _0x0002.get(String(_0x0318 || ''));
+-    if (!_0x031a)
+-        throw new Error('채팅방을 찾을 수 없습니다.');
+-    const _0x031b = _0x0031(_0x0319 || '', '');
+-    if (!_0x031b)
+-        throw new Error('추천을 받을 사용자 이름을 입력하세요.');
+-    const _0x031c = new Map();
+-    for (const _0x031d of _0x0002.values()) {
+-        for (const _0x031e of _0x031d.users.values()) {
+-            if (_0x031e.id === _0x0004.id || _0x031e.name !== _0x031b)
+-                continue;
+-            const _0x031f = Boolean(_0x031e.online !== false && _0x002f() - Number(_0x031e.lastSeen || 0) <= _0x001b);
+-            const _0x0320 = _0x031c.get(_0x031e.id);
+-            if (!_0x0320 || (_0x031f && !_0x0320.online))
+-                _0x031c.set(_0x031e.id, { id: _0x031e.id, name: _0x031e.name, online: _0x031f });
+-        }
+-    }
+-    if (!_0x031c.size)
+-        throw new Error('해당 이름의 사용자를 찾을 수 없습니다. 같은 채팅방에서 한 번 이상 확인된 사용자만 추천할 수 있습니다.');
+-    const _0x0321 = [..._0x031c.values()].filter((_0x0322) => _0x0322.online && !_0x031a.users.has(_0x0322.id));
+-    if (!_0x0321.length) {
+-        if ([..._0x031c.values()].some((_0x0323) => !_0x0323.online))
+-            throw new Error('해당 사용자는 현재 접속 중이지 않습니다. 접속 중일 때 방 추천을 보낼 수 있습니다.');
+-        throw new Error('해당 사용자는 이미 이 방에 참가 중입니다.');
+-    }
+-    let _0x0324 = 0;
+-    for (const _0x0325 of _0x0321) {
+-        const _0x0326 = `${_0x0300}${_0x0325.id}`;
+-        const _0x0327 = {
+-            id: _0x0030(),
+-            type: 'room-recommendation',
+-            senderId: _0x0004.id,
+-            senderName: _0x0004.name,
+-            targetId: _0x0325.id,
+-            targetName: _0x0325.name,
+-            roomCode: _0x031a.code,
+-            roomName: _0x031a.name,
+-            at: _0x002f(),
+-        };
+-        try {
+-            await _0x0005.ensureChannel(_0x0326);
+-            await _0x0005.send(_0x0326, 'room-recommendation', _0x0327);
+-            _0x0324 += 1;
+-        }
+-        finally {
+-            try { _0x0005.leave(_0x0326); } catch (_) { }
+-        }
++    const room = _0x0002.get(String(_0x0318 || ''));
++    if (!room) throw new Error('채팅방을 찾을 수 없습니다.');
++    const targetId = String(_v227TargetId || '').trim();
++    if (!targetId || targetId === _0x0004.id) throw new Error('추천할 사용자를 선택하세요.');
++    if (room.users.has(targetId)) throw new Error('해당 사용자는 이미 이 방에 참가 중입니다.');
++    if (!_v227Fingerprint) throw new Error('기기 확인 정보가 없습니다. 다시 로그인해 주세요.');
++    const policy = await EntrySettingsFetch.accountRequest('recommend', {
++        roomCode: room.code,
++        senderAccountId: _0x0004.id,
++        targetAccountId: targetId,
++        fingerprintHash: _v227Fingerprint,
++    }, { timeout: 15000 });
++    const target = policy?.target;
++    if (!target?.id) throw new Error('추천할 사용자를 찾을 수 없습니다.');
++    const channel = `${_0x0300}${target.id}`;
++    const packet = {
++        id: _0x0030(),
++        type: 'room-recommendation',
++        senderId: _0x0004.id,
++        senderName: _0x0004.name,
++        targetId: target.id,
++        targetName: target.nickname,
++        roomCode: room.code,
++        roomName: room.name,
++        at: _0x002f(),
++    };
++    try {
++        await _0x0005.ensureChannel(channel);
++        await _0x0005.send(channel, 'room-recommendation', packet);
++    } finally {
++        try { _0x0005.leave(channel); } catch (_) { }
+     }
+-    return { sent: _0x0324, name: _0x031b };
++    return { sent: 1, target: { id: target.id, name: target.nickname } };
+ }
+ async function _0x0328() {
+     let _0x0329 = false;
+@@ -1182,6 +1384,7 @@ function _0x0152(_0x0153, _0x0154) {
+         _0x0157.lastSeen = _0x002f();
+         _0x0157.online = true;
+     }
++    if (_0x0156) _v227AddChatNotification(_0x0155, _0x0154).catch(() => { });
+     _0x0182({ type: 'message', message: _0x0154 });
+     _0x017e();
+ }
+@@ -1545,7 +1748,7 @@ function _0x0175(_0x0176) {
+ function _0x017a() {
+     const _0x017b = _0x008e(_0x000d);
+     return {
+-        authenticated: Boolean(_0x000d === 0 && _0x0006 && _0x0005),
++        authenticated: Boolean(_0x000d === 0 && _0x0006 && _0x0005 && _v227Fingerprint),
+         connectionStatus: _0x017b || (_0x0006 ? _0x000c : 'locked'),
+         accessMode: _0x000d,
+         accessStatus: _0x017b || 'normal',
+@@ -1559,6 +1762,8 @@ function _0x017a() {
+         backupHealth: { ..._0x0015 },
+         notifications: _0x0303.slice(-50).map((_0x0336) => ({ ..._0x0336 })),
+         notificationUnread: _0x0303.filter((_0x0337) => !_0x0337.read).length,
++        theme: _v227Theme,
++        accountCodeAvailable: Boolean(_v227AccountCode),
+         rooms: [..._0x0002.values()].map(_0x0175).sort((_0x017c, _0x017d) => _0x017c.name.localeCompare(_0x017d.name, 'ko') || _0x017c.code.localeCompare(_0x017d.code)),
+     };
+ }
+@@ -1765,10 +1970,17 @@ async function _0x01b2(_0x01b3, _0x01b4 = {}) {
+         case 'GET_STATE': return _0x017a();
+         case 'ACCEPT_TERMS': return _0x009b();
+         case 'ACK_SHORTCUT_INTRO': return _0x0229();
+-        case 'AUTH': return _0x00a6(_0x01b4.password, _0x01b4.name);
++        case 'AUTH': return _0x00a6(_0x01b4.password, _0x01b4.name, _0x01b4.fingerprintHash);
+         case 'SET_NAME':
+             await _0x00ac(_0x01b4.name);
+             return _0x017a();
++        case 'REGISTER_ACCOUNT': return _v227RegisterAccount(_0x01b4.fingerprintHash, _0x01b4.name || _0x0004.name);
++        case 'UPDATE_ACCOUNT_NAME': return _v227UpdateAccountName(_0x01b4.name);
++        case 'SEARCH_ACCOUNTS': return _v227SearchAccounts(_0x01b4.query);
++        case 'COPY_ACCOUNT_CODE': return _v227CopyAccountCode();
++        case 'IMPORT_ACCOUNT_CODE': return _v227ImportAccountCode(_0x01b4.accountCode, _0x01b4.fingerprintHash);
++        case 'DELETE_ACCOUNT': return _v227DeleteAccount();
++        case 'SET_THEME': return _v227SetTheme(_0x01b4.theme);
+         case 'SET_PROFILE_IMAGE': return _0x00b2(_0x01b4.imageDataUrl || '');
+         case 'BACKUP_ORIGINAL_IMAGE_TEMP': return _0x0125(_0x01b4);
+         case 'CREATE_ROOM': return _0x00b8(_0x01b4.name);
+@@ -1781,6 +1993,7 @@ async function _0x01b2(_0x01b3, _0x01b4 = {}) {
+         case 'SEND_SELF_CHAT': return _0x00de(_0x01b4);
+         case 'MARK_READ': return _0x01d0(_0x01b4);
+         case 'SEND_ROOM_RECOMMENDATION': return _0x0317(_0x01b4);
++        case 'BLOCK_ROOM_RECOMMENDATIONS': return _v227BlockRoomRecommendations(_0x01b4.roomCode);
+         case 'MARK_NOTIFICATIONS_READ': return _0x0328();
+         case 'GET_SCROLL_STATE': return _0x032b();
+         case 'SAVE_SCROLL_STATE': return _0x032e(_0x01b4);
+diff --git a/build-info.json b/build-info.json
+index f71fc25..af128d1 100644
+--- a/build-info.json
++++ b/build-info.json
+@@ -1,8 +1,8 @@
+ {
+   "productId": "junwoo-comprehensive-chat-extension",
+-  "version": "2.2.6",
+-  "buildId
