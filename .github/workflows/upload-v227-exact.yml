@@ -1,0 +1,87 @@
+name: Upload exact v2.2.7
+
+on:
+  push:
+    paths:
+      - '.github/workflows/upload-v227-exact.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct exact local ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            cat tools/v227_exact/part00.b64
+            cat tools/v227_exact/part01.b64
+            cat tools/v227_exact/part02.b64
+            cat tools/v227_exact_fixed/part03_00.b64
+            cat tools/v227_exact_fixed/part03_01.b64
+            cat tools/v227_exact_fixed/part03_02.b64
+            cat tools/v227_exact_fixed/part03_03.b64
+            cat tools/v227_exact_fixed/part03_04.b64
+            cat tools/v227_exact/part04.b64
+            cat tools/v227_exact/part05.b64
+            cat tools/v227_exact_fixed/part06_00.b64
+            cat tools/v227_exact_fixed/part06_01.b64
+            cat tools/v227_exact_fixed/part06_02.b64
+            cat tools/v227_exact_fixed/part06_03.b64
+            cat tools/v227_exact_fixed/part06_04_0.b64
+            cat tools/v227_exact_fixed/part06_04_1.b64
+            cat tools/v227_exact_fixed/part07_00.b64
+            cat tools/v227_exact_fixed/part07_01_0.b64
+            cat tools/v227_exact_fixed/part07_01_1.b64
+            cat tools/v227_exact_fixed/part07_02.b64
+          } > /tmp/message_V2.2.7.b64
+          base64 -d /tmp/message_V2.2.7.b64 > message_V2.2.7.zip
+
+      - name: Verify byte identity and package metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(wc -c < message_V2.2.7.zip)" = "112924"
+          echo "486c6c606cd4019ac5dc831fe49c907b82b57ad715e6c95a1a878da6b221984f  message_V2.2.7.zip" | sha256sum -c -
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, json, zipfile
+          p=Path('message_V2.2.7.zip')
+          b=p.read_bytes()
+          gitsha=hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          expected='ae5768067591fbfa42d12fa2d656990107bfc5e'
+          assert gitsha == expected, (gitsha, expected)
+          with zipfile.ZipFile(p) as z:
+              bad=z.testzip()
+              assert bad is None, bad
+              m=json.loads(z.read('manifest.json'))
+              bi=json.loads(z.read('build-info.json'))
+          assert m['version']=='2.2.7', m['version']
+          assert bi['version']=='2.2.7', bi['version']
+          assert bi['productId']=='junwoo-comprehensive-chat-extension'
+          assert bi['buildId']=='843af0ea-0c1f-477b-9a85-548ecd518000', bi['buildId']
+          print('size=',len(b))
+          print('sha256=',hashlib.sha256(b).hexdigest())
+          print('git_blob_sha=',gitsha)
+          print('metadata OK')
+          PY
+          unzip -t message_V2.2.7.zip >/dev/null
+
+      - name: Commit exact update ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add message_V2.2.7.zip
+          if git diff --cached --quiet; then
+            echo 'Exact ZIP already present.'
+            exit 0
+          fi
+          git commit -m 'release: upload exact message_V2.2.7.zip'
+          git push
