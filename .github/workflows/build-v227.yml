@@ -36,7 +36,12 @@ jobs:
           git config user.name actions
           git add .
           git commit -qm base
-          git apply --reject /tmp/v227.patch || true
+          git apply --reject --whitespace=nowarn /tmp/v227.patch || true
+
+          # The development patch may contain package-manager scratch files.
+          # They are not extension distribution files and must never enter the ZIP.
+          rm -rf node_modules
+          rm -f package.json package-lock.json npm-shrinkwrap.json yarn.lock pnpm-lock.yaml
 
           python - <<'PY'
           from pathlib import Path
@@ -44,8 +49,8 @@ jobs:
           r=Path('/tmp/pkg')
 
           # The repository v2.2.6 ZIP was produced from a slightly different
-          # source snapshot than the local development base. Only these three
-          # hunks differ; apply their v2.2.7 final state explicitly.
+          # source snapshot than the local development base. Apply the v2.2.7
+          # recommendation implementation explicitly for that snapshot.
           bg=r/'background.js'
           s=bg.read_text()
           desired=r'''async function _0x0313(_0x0314) {
@@ -109,16 +114,22 @@ jobs:
           if '## v2.2.7 계정·알림·테마' not in text:
               readme.write_text(text.rstrip()+section)
 
-          # Remove reject files before deriving managedFiles.
+          # Reject/original files are patch scratch files, never distribution files.
           for p in r.rglob('*.rej'):
               p.unlink()
           for p in r.rglob('*.orig'):
               p.unlink()
 
+          mpath=r/'manifest.json'
+          m=json.loads(mpath.read_text())
+          m['version']='2.2.7'
+          mpath.write_text(json.dumps(m,ensure_ascii=False,indent=2)+'\n')
+
           bpath=r/'build-info.json'
           b=json.loads(bpath.read_text())
           b['version']='2.2.7'
           b['buildId']='843af0ea-0c1f-477b-9a85-548ecd518000'
+          b['number']=2207
           b['createdAt']='2026-09-16T08:45:10Z'
           b['managedFiles']=sorted(str(p.relative_to(r)) for p in r.rglob('*') if p.is_file() and '.git/' not in str(p))
           bpath.write_text(json.dumps(b,ensure_ascii=False,indent=2)+'\n')
@@ -128,9 +139,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          find /tmp/pkg -type f -name '*.js' -print0 | while IFS= read -r -d '' f; do node --check "$f" >/dev/null; done
+          find /tmp/pkg -type f -name '*.js' ! -path '*/.git/*' ! -path '*/node_modules/*' -print0 | while IFS= read -r -d '' f; do node --check "$f" >/dev/null; done
           python - <<'PY'
-          import json, re
+          import json
           from pathlib import Path
           r=Path('/tmp/pkg')
           m=json.loads((r/'manifest.json').read_text())
@@ -141,6 +152,7 @@ jobs:
           assert m['version']=='2.2.7'
           assert m.get('key')
           assert b['version']=='2.2.7'
+          assert b.get('number')==2207
           assert b['productId']=='junwoo-comprehensive-chat-extension'
           assert b.get('buildId')=='843af0ea-0c1f-477b-9a85-548ecd518000'
           for marker in ['SEARCH_ACCOUNTS','BLOCK_ROOM_RECOMMENDATIONS','COPY_ACCOUNT_CODE','IMPORT_ACCOUNT_CODE','DELETE_ACCOUNT','SET_THEME','chat-message','extraCount']:
@@ -150,7 +162,9 @@ jobs:
           assert 'targetAccountId' in bg and 'targetName: _0x0319' not in bg
           assert 'ACCOUNT_URL' in settings and 'accountRequest' in settings
           assert (r/'SUPABASE_SETUP-v2.2.7.md').exists()
+          forbidden=['node_modules','package.json','package-lock.json']
           files={str(p.relative_to(r)) for p in r.rglob('*') if p.is_file() and '.git/' not in str(p)}
+          assert not any(any(x in f for x in forbidden) for f in files), sorted(f for f in files if any(x in f for x in forbidden))
           assert set(b['managedFiles'])==files, (set(b['managedFiles'])-files, files-set(b['managedFiles']))
           print('v2.2.7 validation OK', b['buildId'], len(files))
           PY
@@ -161,9 +175,21 @@ jobs:
           set -euo pipefail
           rm -f message_V2.2.7.zip
           cd /tmp/pkg
-          rm -rf .git
+          rm -rf .git node_modules
+          rm -f package.json package-lock.json npm-shrinkwrap.json yarn.lock pnpm-lock.yaml
           zip -qr -9 "$GITHUB_WORKSPACE/message_V2.2.7.zip" .
           unzip -t "$GITHUB_WORKSPACE/message_V2.2.7.zip" >/dev/null
+          python - <<'PY'
+          import json, zipfile
+          z='${GITHUB_WORKSPACE}/message_V2.2.7.zip'
+          with zipfile.ZipFile(z) as f:
+              m=json.loads(f.read('manifest.json'))
+              b=json.loads(f.read('build-info.json'))
+          assert m['version']=='2.2.7'
+          assert b['version']=='2.2.7'
+          assert b['buildId']=='843af0ea-0c1f-477b-9a85-548ecd518000'
+          print('ZIP identity OK', m['version'], b['buildId'])
+          PY
           cd "$GITHUB_WORKSPACE"
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
