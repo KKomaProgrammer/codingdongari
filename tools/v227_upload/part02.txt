@@ -1,0 +1,164 @@
+oomRecommendations(roomCode) {
++    if (!_v227Fingerprint) throw new Error('기기 확인 정보가 없습니다. 다시 로그인해 주세요.');
++    roomCode = String(roomCode || '');
++    const result = await EntrySettingsFetch.accountRequest('block-room', {
++        roomCode,
++        accountId: _0x0004.id,
++        fingerprintHash: _v227Fingerprint,
++    }, { timeout: 15000 });
++    _0x0303 = _0x0303.filter((item) => !(item.type === 'room-recommendation' && item.roomCode === roomCode));
++    await _0x0312();
++    _0x017e();
++    return result;
++}
++async function _v227DeleteAccount() {
++    if (!_v227Fingerprint) throw new Error('기기 확인 정보가 없습니다. 다시 로그인해 주세요.');
++    await EntrySettingsFetch.accountRequest('delete-account', {
++        accountId: _0x0004.id,
++        fingerprintHash: _v227Fingerprint,
++    }, { timeout: 20000 });
++    if (_0x0005) { try { _0x0005.close(); } catch (_) { } }
++    _0x0005 = null;
++    _0x0006 = null;
++    _0x000c = 'locked';
++    _0x0002.clear();
++    _0x0303 = [];
++    _v227Fingerprint = '';
++    _v227AccountCode = '';
++    _0x0004 = { id: _0x0030(), name: '사용자', avatarDataUrl: '' };
++    await chrome.storage.session.remove('entryChatServerConfig').catch(() => { });
++    await chrome.storage.local.remove(['entryChatDeviceFingerprintV1', 'entryChatAccountCodeV1', 'entryChatNotificationsV1']).catch(() => { });
++    await chrome.storage.local.set({ entryChatIdentity: _0x0004, entryChatRooms: [] });
++    await _v227PersistIdentity();
++    _0x017e();
++    return { deleted: true };
++}
++async function _v227SetTheme(theme) {
++    const next = ['default', 'google', 'naver'].includes(String(theme || '')) ? String(theme) : 'default';
++    _v227Theme = next;
++    await chrome.storage.local.set({ entryChatThemeV1: next });
++    _0x017e();
++    return { theme: next };
++}
++async function _v227StoreNotification(note) {
++    if (!note?.roomCode || !_0x0044(note.roomCode)) return false;
++    const normalized = {
++        id: String(note.id || _0x0030()),
++        type: note.type === 'chat-message' ? 'chat-message' : 'room-recommendation',
++        senderId: String(note.senderId || ''),
++        senderName: _0x0031(note.senderName || '사용자'),
++        roomCode: String(note.roomCode),
++        roomName: _0x0034(note.roomName || `방 ${note.roomCode}`),
++        targetUserId: note.targetUserId ? String(note.targetUserId) : null,
++        preview: String(note.preview || '').slice(0, 160),
++        extraCount: Math.max(0, Number(note.extraCount) || 0),
++        at: Number(note.at) || _0x002f(),
++        read: false,
++    };
++    if (normalized.type === 'chat-message') {
++        const last = _0x0303[_0x0303.length - 1];
++        const key = `${normalized.roomCode}:${normalized.targetUserId || 'all'}`;
++        const lastKey = last?.type === 'chat-message' ? `${last.roomCode}:${last.targetUserId || 'all'}` : '';
++        if (last && lastKey === key) {
++            last.senderId = normalized.senderId;
++            last.senderName = normalized.senderName;
++            last.preview = normalized.preview;
++            last.at = normalized.at;
++            last.read = false;
++            last.extraCount = Math.min(999, Math.max(0, Number(last.extraCount) || 0) + 1);
++            await _0x0312();
++            _0x017e();
++            return true;
++        }
++    }
++    _0x0303.push(normalized);
++    if (_0x0303.length > 100) _0x0303.splice(0, _0x0303.length - 100);
++    await _0x0312();
++    _0x017e();
++    return true;
++}
++async function _v227AddChatNotification(room, message) {
++    if (!room || !message || message.from === _0x0004.id) return false;
++    const preview = message.deleted ? '삭제된 메시지' : (message.text ? String(message.text).slice(0, 120) : message.imageDataUrl ? '사진을 보냈습니다.' : '새 메시지');
++    return _v227StoreNotification({
++        type: 'chat-message',
++        senderId: message.from,
++        senderName: message.fromName || room.users.get(message.from)?.name || '사용자',
++        roomCode: room.code,
++        roomName: room.name,
++        targetUserId: message.to ? message.from : null,
++        preview,
++        at: Number(message.at) || _0x002f(),
++    });
++}
++
+ async function _0x0098() {
+     const status = await EntrySettingsFetch.fetchStatus();
+     const policy = Boolean(status.mandatoryUpdate);
+@@ -494,7 +715,7 @@ async function _0x00a2(_0x00a3) {
+         return false;
+     }
+ }
+-async function _0x00a6(_0x00a7, _0x00a8) {
++async function _0x00a6(_0x00a7, _0x00a8, _v227FingerprintHash) {
+     await _0x004c();
+     try {
+         await _0x0098();
+@@ -515,8 +736,10 @@ async function _0x00a6(_0x00a7, _0x00a8) {
+             await _0x0090(_0x00ab.accessMode);
+         throw _0x00ab;
+     }
+-    if (_0x00a8)
+-        await _0x00ac(_0x00a8, false);
++    const _v227LoginName = _0x0031(_0x00a8 || _0x0004.name);
++    await _v227RegisterAccount(_v227FingerprintHash, _v227LoginName);
++    if (_v227LoginName)
++        await _0x00ac(_v227LoginName, false, true);
+     _0x0006 = _0x00aa;
+     await chrome.storage.session.set({ entryChatServerConfig: _0x00aa });
+     await _0x0086();
+@@ -524,8 +747,10 @@ async function _0x00a6(_0x00a7, _0x00a8) {
+     _0x00a1();
+     return _0x017a();
+ }
+-async function _0x00ac(_0x00ad, _0x00ae = true) {
+-    _0x0004.name = _0x0031(_0x00ad);
++async function _0x00ac(_0x00ad, _0x00ae = true, _v227SkipServer = false) {
++    const _v227NextName = _0x0031(_0x00ad);
++    if (!_v227SkipServer && _v227Fingerprint) await _v227UpdateAccountName(_v227NextName);
++    _0x0004.name = _v227NextName;
+     await chrome.storage.local.set({ entryChatIdentity: _0x0004 });
+     await _0x0016.setKv('identity', _0x0004).catch(() => { });
+     _0x016b();
+@@ -550,6 +775,7 @@ async function _0x00ac(_0x00ad, _0x00ae = true) {
+ }
+ async function _0x00b2(_0x00b3) {
+     const _0x00b4 = _0x00b3 ? _0x0040(_0x00b3, _0x0024) : '';
++    if (_v227Fingerprint) await _v227UpdateAccountProfile(_0x00b4);
+     _0x0004.avatarDataUrl = _0x00b4;
+     await chrome.storage.local.set({ entryChatIdentity: _0x0004 });
+     await Promise.all([
+@@ -989,75 +1215,51 @@ async function _0x0312() {
+ async function _0x0313(_0x0314) {
+     if (!_0x0314 || String(_0x0314.targetId || '') !== _0x0004.id || !_0x0044(_0x0314.roomCode))
+         return false;
+-    const _0x0315 = String(_0x0314.id || '');
+-    if (!_0x0315 || _0x0303.some((_0x0316) => _0x0316.id === _0x0315))
+-        return false;
+-    _0x0303.push({
+-        id: _0x0315,
++    return _v227StoreNotification({
++        id: _0x0314.id,
+         type: 'room-recommendation',
+-        senderId: String(_0x0314.senderId || ''),
+-        senderName: _0x0031(_0x0314.senderName || '사용자'),
++        senderId: _0x0314.senderId,
++        senderName: _0x0314.senderName,
+         roomCode: String(_0x0314.roomCode),
+-        roomName: _0x0034(_0x0314.roomName || `방 ${_0x0314.roomCode}`),
+-        at: Number(_0x0314.at) || _0x002f(),
+-        read: false,
++        roomName: _0x0314.roomName,
++        at: _0x0314.at,
+     });
+-    if (_0x0303.length > 80) _0x0303.splice(0, _0x0303.le
