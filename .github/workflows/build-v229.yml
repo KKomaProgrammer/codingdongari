@@ -1,0 +1,86 @@
+name: Build v2.2.9
+
+on:
+  push:
+    paths:
+      - '.github/workflows/build-v229.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build v2.2.9 from v2.2.8
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v229 /tmp/v228.zip
+          mkdir -p /tmp/v229
+          curl -fL -o /tmp/v228.zip "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/message_V2.2.8.zip"
+          unzip -q /tmp/v228.zip -d /tmp/v229
+          cd /tmp/v229
+          python "$GITHUB_WORKSPACE/tools/build_v229.py"
+
+      - name: Verify exact v2.2.9 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'a03000e11401ec258c9c0ac2d6afd5ad7e2640d83c024c49b4e31bc752d4dc2a  /tmp/v229/updater.js' | sha256sum -c -
+          echo '2babdc689764361954cfad8f72674f7992ce75fcd247ccbfa3777eeb3383dfa7  /tmp/v229/background.js' | sha256sum -c -
+          echo '7e9a40165a90783dddb8e88847056b3c11acc85e6627cc948bccdeb921c24f6d  /tmp/v229/offscreen/clipboard.js' | sha256sum -c -
+          echo 'ece3f059b8d9c3b10a525f7ea8af64284fa99aaafa59884a88a9cfd41b00c6b0  /tmp/v229/updater.html' | sha256sum -c -
+          echo '2447fad4013020d52b516f23733791d804e4bc05236921ddcac7789422a091c8  /tmp/v229/manifest.json' | sha256sum -c -
+          echo '0413b16dae276f629afd7e2c43899c67d141ea39e6a39d7dd3b14c8c6c18f76c  /tmp/v229/build-info.json' | sha256sum -c -
+          echo '5ec1b7833af8c8bc9e6f75027dcf379ff8390e06511ad2ff6ea8fcbd753e2e5e  /tmp/v229/CHANGELOG-v2.2.9.md' | sha256sum -c -
+          find /tmp/v229 -type f -name '*.js' -print0 | while IFS= read -r -d '' f; do node --check "$f" >/dev/null; done
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          r=Path('/tmp/v229')
+          m=json.loads((r/'manifest.json').read_text())
+          b=json.loads((r/'build-info.json').read_text())
+          u=(r/'updater.js').read_text()
+          bg=(r/'background.js').read_text()
+          off=(r/'offscreen/clipboard.js').read_text()
+          assert m['version']=='2.2.9'
+          assert b['version']=='2.2.9'
+          assert b['buildId']=='eb21d128-d8d2-4578-9eda-1da69fb4e87e'
+          assert 'clipboardTimer=setInterval' not in u
+          assert "$('pathInput').value=detected" in u
+          assert u.count('showDirectoryPicker(')==1
+          assert "$('folderButton').addEventListener('click',choose)" in u
+          assert 'ENTRY_UPDATE_START_CLIPBOARD_WATCH' in bg
+          assert 'chrome.tabs.remove(_0x0415.sourceTabId)' in bg
+          assert 'chrome.tabs.update(_0x0415.updateTabId, { active: true })' in bg
+          assert 'setInterval(sampleClipboard,400)' in off
+          actual={str(p.relative_to(r)) for p in r.rglob('*') if p.is_file()}
+          assert set(b['managedFiles'])==actual
+          print('v2.2.9 source verification OK')
+          PY
+
+      - name: Package and commit v2.2.9
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f message_V2.2.9.zip
+          (cd /tmp/v229 && zip -qr -9 "$GITHUB_WORKSPACE/message_V2.2.9.zip" .)
+          unzip -t message_V2.2.9.zip >/dev/null
+          python - <<'PY'
+          import zipfile,json
+          with zipfile.ZipFile('message_V2.2.9.zip') as z:
+              assert z.testzip() is None
+              assert json.loads(z.read('manifest.json'))['version']=='2.2.9'
+              b=json.loads(z.read('build-info.json'))
+              assert b['version']=='2.2.9'
+              assert b['buildId']=='eb21d128-d8d2-4578-9eda-1da69fb4e87e'
+          print('v2.2.9 ZIP verification OK')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add message_V2.2.9.zip
+          git commit -m 'release: add message_V2.2.9.zip'
+          git push
