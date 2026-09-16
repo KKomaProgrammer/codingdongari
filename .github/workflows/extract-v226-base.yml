@@ -1,0 +1,32 @@
+name: Extract v2.2.6 base files
+
+on:
+  push:
+    paths:
+      - '.github/workflows/extract-v226-base.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract exact repository v2.2.6 text files
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v226 /tmp/v226.zip tools/v226_repo_base
+          mkdir -p /tmp/v226 tools/v226_repo_base
+          curl -fL -o /tmp/v226.zip "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/message_V2.2.6.zip"
+          unzip -q /tmp/v226.zip -d /tmp/v226
+          cp /tmp/v226/background.js tools/v226_repo_base/background.js
+          cp /tmp/v226/README.md tools/v226_repo_base/README.md
+          cp /tmp/v226/build-info.json tools/v226_repo_base/build-info.json
+          sha256sum /tmp/v226.zip > tools/v226_repo_base/zip.sha256.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tools/v226_repo_base
+          git commit -m "chore: extract repository v2.2.6 base files"
+          git push
