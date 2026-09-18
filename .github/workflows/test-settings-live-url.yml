@@ -1,0 +1,30 @@
+name: Test settings live URL
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify latest extension uses settings-live.js
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/live-test
+          mkdir -p /tmp/live-test
+          unzip -q message_V2.2.9.zip -d /tmp/live-test
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root = Path('/tmp/live-test')
+          manifest = json.loads((root / 'manifest.json').read_text())
+          settings = (root / 'shared/settings-fetch.js').read_text()
+          assert manifest['version'] == '2.2.9'
+          assert '/current/settings-live.js' in settings, 'latest extension still uses old settings endpoint'
+          assert '/current/settings`' not in settings
+          print('settings-live URL OK')
+          PY
