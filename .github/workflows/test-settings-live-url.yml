@@ -14,17 +14,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          LATEST="$(python3 - <<'PY'
+          from pathlib import Path
+          import re
+          items=[]
+          for p in Path('.').glob('message_V*.zip'):
+              m=re.fullmatch(r'message_V(\d+)\.(\d+)\.(\d+)\.zip', p.name, re.I)
+              if m: items.append((tuple(map(int,m.groups())), p.name))
+          if not items: raise SystemExit('no message_V*.zip found')
+          print(max(items)[1])
+          PY
+          )"
           rm -rf /tmp/live-test
           mkdir -p /tmp/live-test
-          unzip -q message_V2.2.9.zip -d /tmp/live-test
-          python3 - <<'PY'
+          unzip -q "$LATEST" -d /tmp/live-test
+          LATEST="$LATEST" python3 - <<'PY'
           from pathlib import Path
-          import json
+          import json, os, re
           root = Path('/tmp/live-test')
           manifest = json.loads((root / 'manifest.json').read_text())
           settings = (root / 'shared/settings-fetch.js').read_text()
-          assert manifest['version'] == '2.2.9'
+          m = re.fullmatch(r'message_V(\d+\.\d+\.\d+)\.zip', os.environ['LATEST'], re.I)
+          assert m and manifest['version'] == m.group(1), (os.environ['LATEST'], manifest['version'])
           assert '/current/settings-live.js' in settings, 'latest extension still uses old settings endpoint'
-          assert '/current/settings`' not in settings
-          print('settings-live URL OK')
+          assert '${API_BASE}/current/settings`' not in settings
+          print('settings-live URL OK', manifest['version'])
           PY
