@@ -1,0 +1,120 @@
+name: Build v2.2.10
+
+on:
+  push:
+    paths:
+      - '.github/workflows/build-v2210.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Build v2.2.10 from v2.2.9
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v2210 /tmp/v229.zip /tmp/before.json
+          mkdir -p /tmp/v2210
+          cp message_V2.2.9.zip /tmp/v229.zip
+          unzip -q /tmp/v229.zip -d /tmp/v2210
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, re
+
+          root = Path('/tmp/v2210')
+          before = {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
+                    for p in root.rglob('*') if p.is_file()}
+          Path('/tmp/before.json').write_text(json.dumps(before, sort_keys=True))
+
+          settings_path = root / 'shared/settings-fetch.js'
+          source = settings_path.read_text()
+          pattern = r"(const\s+API_URL\s*=\s*`\$\{API_BASE\})/current/settings(`;)"
+          updated, count = re.subn(pattern, r"\1/current/settings-live.js\2", source, count=1)
+          if count != 1:
+              raise SystemExit('API_URL /current/settings assignment not found exactly once')
+          if '/current/settings-live.js' not in updated:
+              raise SystemExit('settings-live.js URL replacement failed')
+          settings_path.write_text(updated)
+
+          manifest_path = root / 'manifest.json'
+          manifest = json.loads(manifest_path.read_text())
+          if manifest.get('version') != '2.2.9':
+              raise SystemExit(f"unexpected base version: {manifest.get('version')}")
+          manifest['version'] = '2.2.10'
+          manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+
+          build_path = root / 'build-info.json'
+          build = json.loads(build_path.read_text())
+          if build.get('version') != '2.2.9':
+              raise SystemExit(f"unexpected build-info base version: {build.get('version')}")
+          build['version'] = '2.2.10'
+          build['buildId'] = 'c8a94920-d0a6-44b5-9c10-2210e42a184d'
+          build['number'] = 2210
+          build['createdAt'] = '2026-09-18T01:55:00Z'
+          build['managedFiles'] = sorted(str(p.relative_to(root)) for p in root.rglob('*') if p.is_file())
+          build_path.write_text(json.dumps(build, ensure_ascii=False, indent=2) + '\n')
+          PY
+
+      - name: Verify minimal live-settings patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          find /tmp/v2210 -type f -name '*.js' -print0 | while IFS= read -r -d '' f; do node --check "$f" >/dev/null; done
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json
+
+          root = Path('/tmp/v2210')
+          before = json.loads(Path('/tmp/before.json').read_text())
+          after = {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
+                   for p in root.rglob('*') if p.is_file()}
+          changed = {name for name in before if before[name] != after.get(name)} | (set(after) - set(before))
+          expected = {'shared/settings-fetch.js', 'manifest.json', 'build-info.json'}
+          assert changed == expected, (changed, expected)
+
+          manifest = json.loads((root / 'manifest.json').read_text())
+          build = json.loads((root / 'build-info.json').read_text())
+          settings = (root / 'shared/settings-fetch.js').read_text()
+          assert manifest['version'] == '2.2.10'
+          assert build['version'] == '2.2.10'
+          assert build['number'] == 2210
+          assert build['buildId'] == 'c8a94920-d0a6-44b5-9c10-2210e42a184d'
+          assert '/current/settings-live.js' in settings
+          assert '${API_BASE}/current/settings`' not in settings
+          actual = {str(p.relative_to(root)) for p in root.rglob('*') if p.is_file()}
+          assert set(build['managedFiles']) == actual
+          print('v2.2.10 minimal settings-live patch OK')
+          PY
+
+      - name: Package and commit v2.2.10
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f message_V2.2.10.zip
+          (cd /tmp/v2210 && zip -qr -9 "$GITHUB_WORKSPACE/message_V2.2.10.zip" .)
+          unzip -t message_V2.2.10.zip >/dev/null
+          python3 - <<'PY'
+          import json, zipfile
+          with zipfile.ZipFile('message_V2.2.10.zip') as z:
+              assert z.testzip() is None
+              manifest = json.loads(z.read('manifest.json'))
+              build = json.loads(z.read('build-info.json'))
+              settings = z.read('shared/settings-fetch.js').decode()
+              assert manifest['version'] == '2.2.10'
+              assert build['version'] == '2.2.10'
+              assert '/current/settings-live.js' in settings
+          print('v2.2.10 ZIP verification OK')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add message_V2.2.10.zip
+          git commit -m 'release: add message_V2.2.10.zip'
+          git push
